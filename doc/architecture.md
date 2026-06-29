@@ -86,43 +86,52 @@ To target a diverse customer base, the system supports four main entry points:
 *   **Marketplace Integrations:** Background integration workers that synchronize inventory, pricing, and orders with external marketplaces (e.g., Amazon, eBay).
 *   **B2B Integrations:** Secure partner-facing REST APIs or EDI gateways enabling high-volume bulk ordering and contract pricing.
 
-### 3.2. API & Business Logic Layer (Spring Boot)
-*   **Technology:** Spring Boot (Java/Kotlin) for building resilient, enterprise-grade REST APIs.
-*   **API Gateway:** A unified gateway (such as GCP Apigee or Cloud API Gateway) to handle authentication, rate limiting, request routing, and telemetry.
-*   **Service Design:** Highly modular backend services (e.g., Catalog, Order, User, Payment) deployed as containerized services, facilitating rapid, independent deployment by cross-functional teams.
+### 3.2. API & Business Logic Layer (Spring Boot 3.x)
+*   **Technology:** Spring Boot 3.x (Java 21) organized as a **Multi-Module Monorepo** (Gradle/Maven multi-module setup) for unified dependency management and rapid cross-module refactoring.
+*   **API Gateway & BFF:** 
+    *   **GCP Apigee** handles edge security, rate limiting, and partner/B2B integrations (translating formats, managing client keys, mTLS).
+    *   A **Backend-for-Frontend (BFF)** gateway patterns web/mobile requests, aggregating responses to minimize mobile network payload sizes.
+*   **Service Design:** Highly modular, containerized Spring Boot backend services (e.g., Catalog, Order, User, Payment) deployed to GKE, enabling autonomous domain ownership for the two cross-functional teams.
 
 ### 3.3. Database & Caching Strategy
-*While the specific database technologies are open for decision, the following tiers are planned:*
-1.  **Read Cache Tier:** High-performance, in-memory caching (e.g., GCP Memorystore for Redis) to offload catalog reads and session state, ensuring sub-millisecond response times.
-2.  **Transactional Database Tier:** A highly scalable relational database to handle orders, inventory balance, and user accounts. Candidates include:
-    *   *GCP Cloud Spanner:* Highly recommended for global consistency, horizontal scalability, and high availability (99.999%).
-    *   *GCP Cloud SQL (PostgreSQL/MySQL):* Suitable for a regional, standard relational setup.
-3.  **NoSQL / Analytical Tier:** For user carts, activity logs, and real-time clickstream data (e.g., Cloud Firestore or Bigtable).
+*The system implements a strict **Logical Database-per-Service** design to prevent database bottlenecks and team coupling while maintaining cost-effective cloud resource usage:*
+
+1.  **Split-Read Catalog Tier (Redis + Elasticsearch):**
+    *   **Elasticsearch (Elastic Cloud on GCP):** Powers the search bar, type-ahead/auto-complete, dynamic filtering (facets), and search relevance ranking.
+    *   **GCP Memorystore for Redis:** Acts as a high-speed cache for individual Product Detail Page (PDP) requests (direct ID lookups), yielding sub-millisecond retrieval times.
+2.  **Transactional Database Tier (Cloud Spanner):**
+    *   **Logical DB-per-Service:** Each service (e.g., Order, Inventory) connects to its own isolated database schema on a shared **GCP Cloud Spanner** cluster. 
+    *   **Zero Direct Cross-Service Queries:** The Order service never queries Catalog tables directly. Any inter-service data dependencies (e.g., order pricing checks) are handled via high-speed internal gRPC APIs.
+3.  **NoSQL & Relational Tiers:**
+    *   **Cloud SQL (PostgreSQL):** For isolated relational services like User & Profile data where standard SQL matches complex relationship structures.
 
 ### 3.4. Real-Time Processing & Event Streaming
 *   **Event Broker (GCP Pub/Sub):** Asynchronous event-driven communication to decouple checkout processing from notifications, inventory updates, and analytical pipelines.
 *   When an order is completed, the checkout service publishes an `OrderPlaced` event. Subscribed services (e.g., Inventory, Email/Notification, Shipping) process this event independently.
+*   **Data Snapping:** During checkout, the Order Service captures and writes a permanent JSON **snapshot** of product prices and shipping details at that specific moment, removing any requirement to join against the Catalog database for historical order reporting.
 
 ---
 
 ## 4. Google Cloud Platform (GCP) Mapping
 
-Below is the preliminary mapping of architectural components to native GCP services:
+Below is the updated mapping of architectural components to native GCP services:
 
 | Component | Proposed GCP Service | Rationale |
 | :--- | :--- | :--- |
 | **Hosting & Container Orchestration** | Google Kubernetes Engine (GKE) | Industry standard for scaling microservices, self-healing, and rolling updates. |
-| **API Management** | Apigee or Cloud API Gateway | Robust traffic management, API security, and analytics. |
-| **Content Delivery & Security** | Cloud DNS + Cloud Armor + Cloud CDN | Prevents DDoS attacks, secures endpoints, and caches static assets globally. |
-| **Asynchronous Messaging** | Cloud Pub/Sub | Fully managed, global-scale real-time messaging middleware. |
-| **Relational Database** | Cloud Spanner *or* Cloud SQL | Cloud Spanner provides horizontal scalability with strong global consistency. |
+| **API Management & Edge** | Apigee + Cloud Armor | Secure, rate-limited public APIs; translates B2B requests; blocks DDoS and OWASP threats. |
+| **Full-Text Catalog Search** | Elasticsearch (Elastic Cloud on GCP) | Fuzzy matching, category facets, and auto-complete for fast product discovery. |
 | **Caching** | Cloud Memorystore for Redis | Fully managed Redis for sub-millisecond caching of hot data. |
+| **Asynchronous Messaging** | Cloud Pub/Sub | Fully managed, global-scale real-time messaging middleware. |
+| **Relational Database** | Cloud Spanner (Multi-Region) | Logical DB-per-service configuration providing global scalability with strong transactional consistency. |
+| **Relational (Profile/User)** | Cloud SQL (PostgreSQL) | Isolated storage for relational profile and configuration data. |
 | **Logging & Monitoring** | Cloud Logging & Cloud Monitoring (Operations Suite) | Centralized metrics, tracing, and log aggregation for quick issue resolution. |
 
 ---
 
 ## 5. Key Decisions & Next Steps
 
-1.  **Framework Validation:** Confirm the exact microservice strategy (Spring Boot version, Spring Cloud Gateway vs. Apigee).
-2.  **Database Selection:** Perform a trade-off analysis between **Cloud Spanner** (higher cost, massive horizontal global scale) and **Cloud SQL** (lower cost, traditional relational architecture).
-3.  **CI/CD Pipeline Design:** Set up build and deployment pipelines (using GitHub Actions, Google Cloud Build, and Artifact Registry) targeting GKE.
+1.  **Codebase Bootstrap:** Initialize the Multi-Module Monorepo with Spring Boot 3.x and Java 21, establishing shared `core-common` packages for security and model mapping.
+2.  **Database Strategy Alignment:** Adopt **Logical DB-per-Service on a shared Cloud Spanner instance**, implementing schema isolation per team domain.
+3.  **Split-Read Implementation:** Design indexing pipelines to feed real-time catalog changes from Cloud Spanner to both Redis and Elasticsearch via GCP Pub/Sub.
+4.  **CI/CD Pipeline Design:** Set up build and deployment pipelines (using GitHub Actions, Google Cloud Build, and Artifact Registry) targeting GKE.
