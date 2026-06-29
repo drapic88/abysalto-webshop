@@ -33,7 +33,7 @@ graph TD
 ```
 
 ### 1.1. Edge-First Delivery & Global Caching
-*   **GCP Cloud CDN & Cloud DNS:** Any static website assets (Angular bundle, images, product media) are cached globally across Google's 100+ edge points of presence (PoPs). This offloads up to **80% of frontend traffic** from our compute servers.
+*   **GCP Cloud CDN & Cloud DNS:** Any static website assets (Next.js statically-generated pages, optimized images, bundle assets) are cached globally across Google's 100+ edge points of presence (PoPs). This offloads up to **80% of frontend traffic** from our compute servers.
 *   **Dynamic Cache Control:** catalog APIs utilize fine-grained HTTP Cache-Control headers (`public, max-age=60, s-maxage=300, stale-while-revalidate=60`). This allows safe edge-caching of product details while maintaining rapid updates.
 
 ### 1.2. Elastic Compute (GKE Autoscaling)
@@ -87,7 +87,7 @@ sequenceDiagram
 
 ### 2.1. Minimizing PCI-DSS Compliance Scope (Tokenization)
 To secure payment transactions and maintain minimal audit scope, the system **never processes, transmits, or stores raw credit card details**:
-*   **Client-Side Tokenization:** The Angular frontend communicates directly with verified payment providers (e.g., Stripe, Adyen, or Braintree) using secure iframe or SDK integrations.
+*   **Client-Side Tokenization:** The Next.js frontend communicates directly with verified payment providers (e.g., Stripe, Adyen, or Braintree) using secure iframe or SDK integrations.
 *   The payment provider returns a secure, single-use token representing the payment method.
 *   Our Spring Boot Order Service receives only this token and submits it via server-to-server API calls to finalize the charge.
 
@@ -104,7 +104,7 @@ To secure payment transactions and maintain minimal audit scope, the system **ne
 To secure public access points and internal systems, authentication (AuthN) and authorization (AuthR) are separated by entry channel and logical scope.
 
 #### 2.4.1. B2C Consumer Security (GCP Identity Platform)
-The Web (Angular) and Mobile applications delegate user storage and credentials verification to **Google Cloud Identity Platform**.
+The Web (Next.js) and Mobile applications delegate user storage and credentials verification to **Google Cloud Identity Platform**.
 
 ```mermaid
 sequenceDiagram

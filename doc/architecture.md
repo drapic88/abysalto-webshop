@@ -23,7 +23,7 @@ This document outlines the first draft of the high-level system architecture for
 graph TD
     %% Sales Channels
     subgraph Channels ["Sales Channels"]
-        Web["🌍 Web Shop (Angular)"]
+        Web["🌍 Web Shop (Next.js)"]
         Mobile["📱 Mobile App (iOS / Android)"]
         Marketplace["🛒 Marketplace Integrations (Amazon, eBay, etc.)"]
         B2B["🔗 B2B Integrations (APIs / EDI)"]
@@ -81,7 +81,7 @@ graph TD
 
 ### 3.1. Sales Channels (Frontend & Integrations)
 To target a diverse customer base, the system supports four main entry points:
-*   **Web Shop:** A modern, fast, and responsive Angular single-page application (SPA), optimized for SEO and global delivery via GCP Cloud CDN.
+*   **Web Shop:** A modern, fast, and responsive Next.js application, leveraging Server-Side Rendering (SSR) and Incremental Static Regeneration (ISR) to deliver optimal global SEO and sub-second load times via GCP Cloud CDN.
 *   **Mobile Applications:** Native or hybrid mobile applications communicating with the same backend APIs.
 *   **Marketplace Integrations:** Background integration workers that synchronize inventory, pricing, and orders with external marketplaces (e.g., Amazon, eBay).
 *   **B2B Integrations:** Secure partner-facing REST APIs or EDI gateways enabling high-volume bulk ordering and contract pricing.
@@ -133,7 +133,7 @@ To securely expose backend domains to different sales channels, the API layer is
 ```mermaid
 graph TD
     %% Sales Channels
-    Web["🌍 Web Shop (Angular)"] --> BFF["B2C BFF (Spring Cloud Gateway)"]
+    Web["🌍 Web Shop (Next.js)"] --> BFF["B2C BFF (Spring Cloud Gateway)"]
     Mobile["📱 Mobile App"] --> BFF
     
     Market["🛒 Marketplaces"] --> Apigee["Partner Edge (GCP Apigee)"]
