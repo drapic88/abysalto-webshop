@@ -51,9 +51,11 @@ To prevent database bottlenecks under heavy write/read traffic, the catalog util
 *   **Memorystore High Availability:** Redis is configured with automatic failover, replication, and horizontal sharding, ensuring sub-millisecond response times.
 
 ### 1.4. Globally Scalable Relational Database (Cloud Spanner)
-Traditional single-instance relational databases become bottlenecks under millions of active users.
-*   **GCP Cloud Spanner** is selected for transactional consistency combined with infinite horizontal scale.
+Traditional single-instance relational databases become bottlenecks under millions of active users. 
+*   **GCP Cloud Spanner** is selected for transactional consistency combined with infinite horizontal scale. We adopt a **Logical DB-per-Service on a Shared Spanner Instance** design to achieve full domain isolation while optimizing cost. For exhaustive design specifications, topology diagrams, DDL patterns, and migration details, see the **[Cloud Spanner Database Strategy](database_strategy.md)**.
 *   **Multi-Region Deployment:** Spanner replicates database shards across multiple global regions, offering write-anywhere horizontal scalability and high availability (99.999% SLA) with strong transaction isolation.
+*   **Parent-Child Table Interleaving:** Related tables (e.g., `OrderItems` inside `Orders`) are physically interleaved in parent tables. This physically co-locates child rows with their parent rows in storage splits, guaranteeing ultra-fast, single-shard atomic mutations and index lookups.
+*   **Hotspotting Mitigation:** Because Cloud Spanner stores data sorted by primary key, sequential keys are strictly forbidden. All schemas mandate cryptographically random **UUID v4 (stored as `STRING(36)`)** for primary keys to distribute write operations evenly across all available database splits.
 
 ---
 
@@ -97,6 +99,60 @@ To secure payment transactions and maintain minimal audit scope, the system **ne
 ### 2.3. Data Protection (At Rest & In Transit)
 *   **In Transit:** All traffic is encrypted with TLS 1.3. Cloud Load Balancing manages SSL certificates automatically.
 *   **At Rest:** GCP encrypts all storage blocks by default. Additionally, for highly sensitive customer data (Personally Identifiable Information - PII), we utilize **envelope encryption** via **GCP Cloud KMS (Key Management Service)**, wrapping data encryption keys (DEK) with central key encryption keys (KEK).
+
+### 2.4. Authentication & Authorization Architecture
+To secure public access points and internal systems, authentication (AuthN) and authorization (AuthR) are separated by entry channel and logical scope.
+
+#### 2.4.1. B2C Consumer Security (GCP Identity Platform)
+The Web (Angular) and Mobile applications delegate user storage and credentials verification to **Google Cloud Identity Platform**.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Client Browser / Mobile
+    participant IdP as GCP Identity Platform
+    participant CF as Before-Create Trigger (Cloud Function)
+    participant UserSvc as Spring Boot User Service
+
+    Note over User,IdP: REGISTRATION FLOW
+    User->>IdP: register(email, password)
+    activate IdP
+    IdP->>CF: "Before Create" Synchronous Hook
+    activate CF
+    CF->>UserSvc: REST: Provision empty profile in DB
+    UserSvc-->>CF: Profile OK
+    CF->>CF: Inject 'ROLE_CUSTOMER' custom claim
+    CF-->>IdP: Registration handshake approved
+    deactivate CF
+    IdP-->>User: Return User JWT (Access + Refresh tokens)
+    deactivate IdP
+```
+
+*   **Registration:** The client SDK creates the user on the identity server. Before committing the account, an enterprise **"Before Create" Cloud Function** calls our Spring Boot `User Service` to provision the database profile and injects `ROLE_CUSTOMER` into the JWT claims.
+*   **Login & Session:** Users authenticate directly with the IdP (supporting MFA, social logins, and brute-force protection). The client receives a short-lived Access JWT (1-hour expiry) and a long-lived Refresh Token.
+*   **Forgot Password:** Managed entirely via the SDK using `sendPasswordResetEmail()`. Google generates a secure, timed reset link and handles SMTP delivery, allowing safe password modification outside our application servers.
+*   **Edge Token Verification:** The API Gateway caches the Identity Platform public signing keys (JWKS) to validate signatures locally in **`< 1ms`** without database roundtrips. Upon success, the Gateway strips incoming custom headers and injects secure `X-User-Id` and `X-User-Roles` HTTP headers downstream.
+
+#### 2.4.2. B2B & Marketplace Integrations (GCP Apigee Gateway)
+Because automated partner systems require high-volume, machine-to-machine integrations instead of interactive logins, their security bypasses the Identity Platform:
+*   **OAuth 2.0 Client Credentials:** Partners request a system-level access token from **GCP Apigee** using pre-shared client credentials.
+*   **Mutual TLS (mTLS):** High-value corporate clients authenticate cryptographically at the network handshake level via whitelisted certificate authorities.
+*   **Scope-Based Authorization:** Requests are evaluated against OAuth Scopes (e.g., `scope: write:b2b-orders`) rather than human roles. Our Spring Boot controllers assert these permissions using `@PreAuthorize("hasAuthority('SCOPE_write:b2b-orders')")`.
+
+#### 2.4.3. Zero-Trust Internal Communication
+To prevent privilege escalation and token expiration failures, **user tokens are never propagated for inter-service communication**.
+*   **mTLS Network Mesh:** Pod-to-pod communication inside GKE is encrypted and verified automatically at the network layer using an **Istio Service Mesh**.
+*   **Workload Identity:** Downstream services authenticate to GCP services (Cloud Spanner, Pub/Sub, Storage) using GKE Workload Identity, which binds Kubernetes Service Accounts (KSA) directly to secure GCP IAM Roles.
+
+#### 2.4.4. Security Architecture Comparison Matrix
+
+| Sales Channel | Target Audience | Authentication Mechanism | Managed By | Authorization Type |
+| :--- | :--- | :--- | :--- | :--- |
+| **🌍 Web Shop** | Consumers (B2C) | OAuth 2.1 + PKCE (JWT Bearer) | GCP Identity Platform | User Roles (`ROLE_CUSTOMER`) |
+| **📱 Mobile App** | Consumers (B2C) | OAuth 2.1 + PKCE (JWT Bearer) | GCP Identity Platform | User Roles (`ROLE_CUSTOMER`) |
+| **🔗 B2B Gateway** | Partner ERPs | Client Credentials / mTLS Handshake | GCP Apigee Gateway | OAuth Scopes (`SCOPE_write:b2b-orders`) |
+| **🛒 Marketplaces** | Amazon, eBay, etc. | HMAC Signatures / Secure Webhooks | GCP Apigee Gateway | Webhook-specific Secret Keys |
+| **⚙️ Internal Pods** | GKE Microservices | Istio mTLS / Workload Identity | GKE Service Accounts | GCP IAM Roles / GKE KSA |
 
 ---
 
