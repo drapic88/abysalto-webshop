@@ -84,7 +84,7 @@ To target a diverse customer base, the system supports four main entry points:
 *   **Web Shop:** A modern, fast, and responsive Next.js application, leveraging Server-Side Rendering (SSR) and Incremental Static Regeneration (ISR) to deliver optimal global SEO and sub-second load times via GCP Cloud CDN.
 *   **Mobile Applications:** Native or hybrid mobile applications communicating with the same backend APIs.
 *   **Marketplace Integrations:** Background integration workers and adapter microservices that synchronize inventory, pricing, and orders with external marketplaces. For our decoupled microservice adapter patterns, see the detailed **[Marketplace Integration Architecture](marketplace_integration.md)**.
-*   **B2B Integrations:** Secure partner-facing REST APIs or EDI gateways enabling high-volume bulk ordering and contract pricing.
+*   **B2B Integrations:** Secure partner-facing REST APIs or EDI gateways enabling high-volume bulk ordering and contract pricing. For our enterprise customer hierarchies, contract pricing, and schema specifications, see the detailed **[B2B Integration Architecture](b2b_integration.md)**.
 
 ### 3.2. API & Business Logic Layer (Spring Boot 3.x)
 
@@ -155,7 +155,7 @@ graph TD
 ##### 2. Partner Edge: GCP Apigee Gateway
 *   **mTLS and API Keys:** Secures server-to-server B2B integrations requiring mutual TLS (mTLS) or custom API Keys.
 *   **Transformation & Translation:** Translates legacy partner protocols (e.g., XML or SOAP) into clean JSON payloads consumed by our modern Spring Boot RestControllers.
-*   **Monetization & Quota Management:** Controls partner usage tiers, automatically throttling clients that exceed contracted requests/minute.
+*   **Monetization & Quota Management:** Controls partner usage tiers, automatically throttling clients that exceed contracted requests/minute. See **[B2B Integration Architecture](b2b_integration.md)** for detailed secure connection and ingestion designs.
 
 ##### 3. Inter-Service Communication (Internal Network)
 *   **gRPC with Protobuf:** For high-speed, low-overhead internal communication (e.g., when the `Order Service` checks product price and stock availability in the `Catalog Service`). This results in network response times under 2ms.
