@@ -179,6 +179,14 @@ graph TD
 *   When an order is completed, the checkout service publishes an `OrderPlaced` event. Subscribed services (e.g., Inventory, Email/Notification, Shipping) process this event independently.
 *   **Data Snapping:** During checkout, the Order Service captures and writes a permanent JSON **snapshot** of product prices and shipping details at that specific moment, removing any requirement to join against the Catalog database for historical order reporting.
 
+### 3.5. Third-Party & External Service Integrations
+To manage connections with external ecosystems (e.g., tax calculation, legal/fiscal reporting, ERP, and shipping carriers) without impacting core e-commerce throughput, the platform utilizes the **Adapter Pattern** combined with the **Transactional Outbox Pattern**:
+*   **Decoupled Adapters:** Individual microservices isolate external API details and data formats, presenting a unified internal interface to core services.
+*   **Checkout Resilience:** Critical path APIs (like real-time tax calculation) are guarded by **Circuit Breakers** and local fallback calculations (cached regional tax tables) to guarantee zero checkout downtime.
+*   **Reliable Compliance Reporting:** Post-checkout government reporting (such as electronic invoicing and fiscalization) is processed asynchronously and idempotently via GKE event workers triggered by database change streams.
+
+For the comprehensive design specs, resiliency configurations, and schema structures, see the **[Third-Party Integration Strategy](third_party_integration.md)**.
+
 ---
 
 ## 4. Google Cloud Platform (GCP) Mapping
