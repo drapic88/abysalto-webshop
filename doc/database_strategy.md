@@ -74,6 +74,7 @@ To support autonomous, cross-functional development, databases and schemas are p
 | Team | Service Domain | Logical Database | Primary Tables | Responsibility |
 | :--- | :--- | :--- | :--- | :--- |
 | **Team A** | Product Catalog | `catalog_db` | `Categories`, `Products`, `Skus`, `ProductAttributes` | Catalog search, product metadata, category taxonomies, and basic read-only stock caching. |
+| **Team A** | Customers & Profiles | `customer_db` | `Customers`, `CustomerAddresses`, `Countries` | Profile management, billing/shipping addresses, global country support flags, regional default localization. |
 | **Team B** | Orders & Checkout | `order_db` | `Orders`, `OrderItems`, `OrderStateHistory` | Shopping cart conversion, order state machine, checkout, tax/shipping snapshots. |
 | **Team B** | Payments | `payment_db` | `PaymentTransactions`, `Refunds` | Vaulted payment token references, high-security transaction logs, external payment gateway handshakes. |
 
@@ -168,7 +169,7 @@ CREATE UNIQUE INDEX idx_skus_code ON Skus(SkuCode);
 ```
 
 ### 4.2. Order Service Domain Schema (`order_db`)
-This schema showcases parent-child interleaving between `Orders` and `OrderItems` as well as indexing by `CustomerId` for customer dashboards.
+This schema showcases parent-child interleaving between `Orders` and `OrderItems`, indexing by `CustomerId` for customer dashboards, and **explicit data-snapping** of global checkout variables (shipping address country, billing country, tax/VAT rates) to guarantee permanent transactional audit records.
 
 ```sql
 -- DDL for order_db
@@ -176,15 +177,33 @@ This schema showcases parent-child interleaving between `Orders` and `OrderItems
 CREATE TABLE Orders (
     OrderId STRING(36) NOT NULL,
     CustomerId STRING(36) NOT NULL,
-    Status STRING(50) NOT NULL, -- CREATED, PAID, SHIPPED, COMPLETED, CANCELLED
-    TotalAmount NUMERIC NOT NULL,
-    Currency STRING(3) NOT NULL,
+    Status STRING(50) NOT NULL,             -- CREATED, PAID, SHIPPED, COMPLETED, CANCELLED
+    SubtotalAmount NUMERIC NOT NULL,       -- Amount before taxes and discounts
+    TaxRate NUMERIC NOT NULL,              -- Tax/VAT rate percentage applied (e.g. 0.20 for 20% VAT)
+    TaxAmount NUMERIC NOT NULL,            -- Total calculated tax amount
+    TotalAmount NUMERIC NOT NULL,          -- SubtotalAmount + TaxAmount - Discounts
+    Currency STRING(3) NOT NULL,           -- Local transaction currency (ISO 4217, e.g., USD, EUR)
+    
+    -- Snapped Shipping Destination for global tax & logistics compliance
+    ShippingStreetLine1 STRING(255) NOT NULL,
+    ShippingStreetLine2 STRING(255),
+    ShippingCity STRING(150) NOT NULL,
+    ShippingState STRING(100),              -- e.g., US State for sales tax determination
+    ShippingPostalCode STRING(20) NOT NULL,
+    ShippingCountryCode STRING(2) NOT NULL, -- ISO-3166-1 alpha-2 code (e.g., US, DE)
+    
+    -- Snapped Billing Information
+    BillingCountryCode STRING(2) NOT NULL,  -- Required for payment gateway validation & dynamic currency checks
+    
     CreatedAt TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
     UpdatedAt TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true)
 ) PRIMARY KEY (OrderId);
 
 -- Secondary Index for customer order history queries
 CREATE INDEX idx_orders_customer ON Orders(CustomerId) STORING (Status, TotalAmount, CreatedAt);
+
+-- Secondary Index to aggregate sales by target country for financial reporting
+CREATE INDEX idx_orders_country ON Orders(ShippingCountryCode) STORING (TotalAmount, TaxAmount, CreatedAt);
 
 CREATE TABLE OrderItems (
     OrderId STRING(36) NOT NULL,
@@ -193,10 +212,63 @@ CREATE TABLE OrderItems (
     SkuId STRING(36) NOT NULL,
     Quantity INT64 NOT NULL,
     UnitPrice NUMERIC NOT NULL,
+    TaxAmount NUMERIC NOT NULL,            -- Tax/VAT calculated on this item
     SnapshotProductName STRING(255) NOT NULL, -- Snapped product name to avoid cross-domain lookup
     CreatedAt TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true)
 ) PRIMARY KEY (OrderId, OrderItemId),
   INTERLEAVE IN PARENT Orders ON DELETE CASCADE;
+```
+
+### 4.3. Customer & Global Localization Domain Schema (`customer_db`)
+This schema manages registered customer accounts, their verified addresses, and supported countries. It utilizes parent-child interleaving to co-locate customer address variants with their primary customer record on the same physical storage split.
+
+```sql
+-- DDL for customer_db
+
+-- Supported Countries Reference Table (Global Market Configurations)
+CREATE TABLE Countries (
+    CountryCode STRING(2) NOT NULL,        -- ISO-3166-1 alpha-2 code (e.g., US, DE, FR, GB)
+    Name STRING(100) NOT NULL,             -- English localized country name
+    DefaultCurrency STRING(3) NOT NULL,    -- Default currency code (ISO 4217, e.g., EUR)
+    DefaultLanguage STRING(5) NOT NULL,    -- e.g., en-US, de-DE, fr-FR
+    DefaultVatRate NUMERIC NOT NULL,       -- Default VAT/Sales Tax rate for checkout estimation
+    IsActive BOOL NOT NULL,                -- Enables/disables sales to this country
+    CreatedAt TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
+    UpdatedAt TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true)
+) PRIMARY KEY (CountryCode);
+
+-- Primary Customer Profile Table
+CREATE TABLE Customers (
+    CustomerId STRING(36) NOT NULL,
+    Email STRING(255) NOT NULL,
+    FirstName STRING(100) NOT NULL,
+    LastName STRING(100) NOT NULL,
+    Status STRING(30) NOT NULL,            -- ACTIVE, SUSPENDED, PENDING_VERIFICATION
+    RegistrationCountryCode STRING(2) NOT NULL, -- Ties user to default billing/compliance laws
+    CreatedAt TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
+    UpdatedAt TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true)
+) PRIMARY KEY (CustomerId);
+
+-- Unique constraint on email for user registration
+CREATE UNIQUE INDEX idx_customers_email ON Customers(Email);
+
+-- Customer Address Book (Interleaved inside Customers)
+CREATE TABLE CustomerAddresses (
+    CustomerId STRING(36) NOT NULL,
+    AddressId STRING(36) NOT NULL,
+    AddressType STRING(30) NOT NULL,       -- SHIPPING, BILLING, BOTH
+    IsDefault BOOL NOT NULL,
+    RecipientName STRING(200) NOT NULL,
+    StreetLine1 STRING(255) NOT NULL,
+    StreetLine2 STRING(255),
+    City STRING(150) NOT NULL,
+    State STRING(100),
+    PostalCode STRING(20) NOT NULL,
+    CountryCode STRING(2) NOT NULL,        -- References Countries(CountryCode) logically
+    CreatedAt TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
+    UpdatedAt TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true)
+) PRIMARY KEY (CustomerId, AddressId),
+  INTERLEAVE IN PARENT Customers ON DELETE CASCADE;
 ```
 
 ---
