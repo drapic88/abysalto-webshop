@@ -83,7 +83,7 @@ graph TD
 To target a diverse customer base, the system supports four main entry points:
 *   **Web Shop:** A modern, fast, and responsive Next.js application, leveraging Server-Side Rendering (SSR) and Incremental Static Regeneration (ISR) to deliver optimal global SEO and sub-second load times via GCP Cloud CDN.
 *   **Mobile Applications:** Native or hybrid mobile applications communicating with the same backend APIs.
-*   **Marketplace Integrations:** Background integration workers that synchronize inventory, pricing, and orders with external marketplaces (e.g., Amazon, eBay).
+*   **Marketplace Integrations:** Background integration workers and adapter microservices that synchronize inventory, pricing, and orders with external marketplaces. For our decoupled microservice adapter patterns, see the detailed **[Marketplace Integration Architecture](marketplace_integration.md)**.
 *   **B2B Integrations:** Secure partner-facing REST APIs or EDI gateways enabling high-volume bulk ordering and contract pricing.
 
 ### 3.2. API & Business Logic Layer (Spring Boot 3.x)
