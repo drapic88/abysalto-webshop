@@ -1,23 +1,43 @@
-### AL ###
-#Template for AL projects for Dynamics 365 Business Central
-#launch.json folder
+# --- Java / Gradle ---
+.gradle/
+build/
+bin/
+out/
+*.class
+*.jar
+*.war
+*.ear
+
+# --- Node / Next.js ---
+node_modules/
+.next/
+out-next/
+dist/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.eslintcache
+
+# --- IDEs / Editors ---
+.idea/
+*.iml
+*.iws
+*.ipr
 .vscode/
-#Cache folder
-.alcache/
-#Symbols folder
-.alpackages/
-#Snapshots folder
-.snapshots/
-#Testing Output folder
-.output/
-#Extension App-file
-*.app
-#Rapid Application Development File
-rad.json
-#Translation Base-file
-*.g.xlf
-#License-files
-*.bclicense
-*.flf
-#Test results file
-TestResults.xml
+.settings/
+.classpath
+.project
+.metadata/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db
+
+# --- Docker / OS ---
+.docker/
+*.log
