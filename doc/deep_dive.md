@@ -15,7 +15,7 @@ Serving millions of daily active users requires a system designed for zero singl
 graph TD
     User["🌍 Global Users"] -->|DNS / Geo-Routing| CDN["GCP Cloud CDN (Edge Caches)"]
     CDN -->|Cache Miss| Armor["GCP Cloud Armor (WAF / DDoS protection)"]
-    Armor -->|Rate Limited traffic| GKE["GKE Gateway API (Ingress)"]
+    Armor -->|Rate-limited traffic| GKE["GKE Gateway API (Ingress)"]
     
     subgraph GKE Cluster ["Google Kubernetes Engine (Autoscaling GKE Node Pools)"]
         direction TB
@@ -34,7 +34,7 @@ graph TD
 
 ### 1.1. Edge-First Delivery & Global Caching
 *   **GCP Cloud CDN & Cloud DNS:** Any static website assets (Next.js statically-generated pages, optimized images, bundle assets) are cached globally across Google's 100+ edge points of presence (PoPs). This offloads up to **80% of frontend traffic** from our compute servers.
-*   **Dynamic Cache Control:** catalog APIs utilize fine-grained HTTP Cache-Control headers (`public, max-age=60, s-maxage=300, stale-while-revalidate=60`). This allows safe edge-caching of product details while maintaining rapid updates.
+*   **Dynamic Cache Control:** Catalog APIs utilize fine-grained HTTP Cache-Control headers (`public, max-age=60, s-maxage=300, stale-while-revalidate=60`). This allows safe edge-caching of product details while maintaining rapid updates.
 
 ### 1.2. Elastic Compute (GKE Autoscaling)
 Our microservices are built on **Spring Boot 3.x** and **Java 21** and deployed on **Google Kubernetes Engine (GKE)**:
@@ -80,7 +80,7 @@ sequenceDiagram
     Vault-->>App: Secure Credential
     App->>GatewayPay: Process transaction with Pay Token
     GatewayPay-->>App: Transaction Success Callback
-    App->>KMS: Request Envelope Encryption for PI data
+    App->>KMS: Request Envelope Encryption for PII data
     KMS-->>App: Encrypted Customer Record
     App->>App: Store Encrypted Record to DB
 ```

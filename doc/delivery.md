@@ -196,7 +196,7 @@ gcloud compute url-maps invalidate-cdn-cache abysalto-production-lb-url-map \
 
 ---
 
-## 6. Backend microservices CI/CD Specifications
+## 5. Backend Microservices CI/CD Specifications
 
 The Spring Boot backend services utilize a similar promotion workflow, but with unique testing paradigms.
 

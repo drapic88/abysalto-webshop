@@ -4,8 +4,9 @@ This document outlines the first draft of the high-level system architecture for
 
 > [!TIP]
 > For detailed implementation strategies on handling extreme scale, secure transactions, and real-time processing pipelines, see the **[Technical Architecture Deep-Dive](deep_dive.md)**.
-> For specifications on our metrics, health checks, alerting, branching strategy, and CI/CD pipelines, see the **[Monitoring, Observability](observability.md)**.
-> For CI/CD pipelines, see the **[Delivery Plan](delivery.md)**.
+> For specifications on metrics, health checks, and alerting, see the **[Monitoring & Observability Plan](observability.md)**.
+> For branching strategy, environment mappings, and CI/CD pipelines, see the **[Delivery Plan](delivery.md)**.
+
 
 ---
 
@@ -65,10 +66,10 @@ graph TD
     PubSub --> NotificationSvc
 
     %% Database & Cache Layer
-    subgraph StorageLayer ["Database & Caching (TBD)"]
-        Cache["In-Memory Cache (e.g., Redis / Memorystore)"]
-        PrimaryDB[(Relational DB - e.g., Cloud Spanner / Cloud SQL)]
-        NoSQLDB[(NoSQL DB - e.g., Firestore / Bigtable for logs/session)]
+    subgraph StorageLayer ["Database & Caching"]
+        Cache["In-Memory Cache (GCP Memorystore for Redis)"]
+        PrimaryDB[(Relational DB - GCP Cloud Spanner)]
+        NoSQLDB[(NoSQL DB - GCP Firestore)]
     end
 
     CatalogSvc --> Cache
@@ -171,10 +172,10 @@ graph TD
     *   **Elasticsearch (Elastic Cloud on GCP):** Powers the search bar, type-ahead/auto-complete, dynamic filtering (facets), and search relevance ranking.
     *   **GCP Memorystore for Redis:** Acts as a high-speed cache for individual Product Detail Page (PDP) requests (direct ID lookups), yielding sub-millisecond retrieval times.
 2.  **Transactional Database Tier (Cloud Spanner):**
-    *   **Logical DB-per-Service on Shared Spanner:** Each team's service (e.g., Catalog, Order, Payment) is provisioned with its own logical database (e.g., `catalog_db`, `order_db`) on a shared **GCP Cloud Spanner** cluster instance.
+    *   **Logical DB-per-Service on Shared Spanner:** Each team's service (Catalog, Order, Payment, and Customer/Profile) is provisioned with its own logical database (e.g., `catalog_db`, `order_db`, `payment_db`, `customer_db`) on a shared **GCP Cloud Spanner** cluster instance.
     *   **Zero Direct Cross-Service Queries:** Services are strictly forbidden from querying another service's tables directly. Any inter-service data dependencies (e.g., checkout price validation) are performed via high-speed internal gRPC APIs.
-3.  **NoSQL & Relational Tiers:**
-    *   **Cloud SQL (PostgreSQL):** For isolated relational services like User & Profile data where standard SQL matches complex relationship structures.
+3.  **NoSQL Listing Metadata Tier (GCP Firestore):**
+    *   **Firestore for Channel Listing Mappings:** Stores translated product schemas and category-to-marketplace listings without impacting the transactional Spanner databases.
 
 ### 3.4. Real-Time Processing & Event Streaming
 *   **Event Broker (GCP Pub/Sub):** Asynchronous event-driven communication to decouple checkout processing from notifications, inventory updates, and analytical pipelines.
@@ -202,9 +203,9 @@ Below is the updated mapping of architectural components to native GCP services:
 | **Full-Text Catalog Search** | Elasticsearch (Elastic Cloud on GCP) | Fuzzy matching, category facets, and auto-complete for fast product discovery. |
 | **Caching** | Cloud Memorystore for Redis | Fully managed Redis for sub-millisecond caching of hot data. |
 | **Asynchronous Messaging** | Cloud Pub/Sub | Fully managed, global-scale real-time messaging middleware. |
-| **Relational Database** | Cloud Spanner (Multi-Region) | Logical DB-per-service configuration providing global scalability with strong transactional consistency. |
-| **Relational (Profile/User)** | Cloud SQL (PostgreSQL) | Isolated storage for relational profile and configuration data. |
-| **Logging & Monitoring** | Cloud Logging & Cloud Monitoring (Operations Suite) | Centralized metrics, tracing, and log aggregation. See the detailed **[Monitoring, Observability](observability.md)**. |
+| **Relational Database** | Cloud Spanner (Multi-Region) | Logical DB-per-service configuration providing global scalability (including Catalog, Orders, Payments, and Profiles) with strong transactional consistency. |
+| **NoSQL Database** | GCP Firestore | Storing and caching translated product metadata and Channel Listing Mappings for marketplaces. |
+| **Logging & Monitoring** | Cloud Logging & Cloud Monitoring (Operations Suite) | Centralized metrics, tracing, and log aggregation. See the detailed **[Monitoring & Observability Plan](observability.md)**. |
 
 ---
 

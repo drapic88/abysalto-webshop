@@ -1,6 +1,6 @@
-# Abysalto Webshop - Monitoring, Observability
+# Abysalto Webshop - Monitoring & Observability Plan
 
-This document details the observability architecture, health checking mechanisms, alert management, and CI/CD delivery framework for the Abysalto Webshop. To support millions of active users daily and maintain a stable, resilient platform, we deploy automated, self-healing container infrastructure coupled with a strict GitOps delivery pipeline and telemetry stack.
+This document details the observability architecture, health checking mechanisms, and alert management for the Abysalto Webshop. To support millions of active users daily and maintain a stable, resilient platform, we deploy automated, self-healing container infrastructure coupled with a comprehensive telemetry stack.
 
 ---
 
@@ -40,15 +40,15 @@ graph TD
 
 ### 1. The Three Pillars of Observability
 
-#### 1. Distributed Tracing (latency & Dependency Tracking)
+#### 1. Distributed Tracing (Latency & Dependency Tracking)
 - **Framework:** Standard Java microservices use **Micrometer Tracing** (bridging to OpenTelemetry) to propagate context.
-- **Trace Context Propagation:** Every external request passing through the API Gateway is injected with a standard W3C Trace Context header (`traceparent`). This token traverses down through the spring Cloud Gateway (BFF), inter-service gRPC calls, Pub/Sub events, and database actions.
+- **Trace Context Propagation:** Every external request passing through the API Gateway is injected with a standard W3C Trace Context header (`traceparent`). This token traverses down through the Spring Cloud Gateway (BFF), inter-service gRPC calls, Pub/Sub events, and database actions.
 - **Backend Storage:** Traces are batch-exported to **Google Cloud Trace**. Developers can visualize a user's entire checkout journey, pinpointing exactly which microservice or Cloud Spanner database query added latency.
 
 #### 2. Centralized Metrics (Performance & Sizing)
 - **Framework:** **Spring Boot Actuator** combined with **Micrometer** aggregates application-level statistics.
 - **Collector Pattern:** GKE runs an OpenTelemetry Collector agent as a DaemonSet. It scrapes standard Prometheus-formatted metrics exposed by the microservices (via `/actuator/prometheus`) and ships them to **Google Cloud Monitoring** workspace.
-- **System Metrics:** Host/Node CPU, memory saturation, container network traffic, and disk IO are gathered natively via GKE GKE-native monitoring metrics.
+- **System Metrics:** Host/Node CPU, memory saturation, container network traffic, and disk IO are gathered natively via GKE-native monitoring metrics.
 
 #### 3. Structured Logging (Context & Troubleshooting)
 - **Framework:** Spring Boot uses Logback with a logstash-logback-encoder to output structured **JSON logs** on `stdout`.
