@@ -33,7 +33,7 @@ graph TD
         direction TB
         subgraph Backend_CI ["Backend Modules"]
             VerifyBE["Checkstyle & SonarQube"]
-            TestBE["Testcontainers (Spanner/Redis)"]
+            TestBE["Testcontainers (Postgres/Redis)"]
             PackBE["Build Distroless Container"]
         end
         subgraph Frontend_CI ["WebShop Next.js App"]
@@ -200,6 +200,6 @@ gcloud compute url-maps invalidate-cdn-cache abysalto-production-lb-url-map \
 
 The Spring Boot backend services utilize a similar promotion workflow, but with unique testing paradigms.
 
-1. **Hermetic Integration Tests:** Uses **Testcontainers** to instantiate local Docker instances of Google Cloud Spanner (using the emulator) and Redis. This ensures integrations are tested in true-to-life scenarios without network variance or shared-state corruption.
+1. **Hermetic Integration Tests:** Uses **Testcontainers** to instantiate local Docker instances of official PostgreSQL and Redis. This ensures integrations are tested in true-to-life scenarios without network variance or shared-state corruption.
 2. **Secure Containerization:** Spring Boot services are packaged inside **distroless** Java 21 containers (`gcr.io/distroless/java21`), which contain no standard shells, packaging utilities, or diagnostic files. This severely limits the attack surface of the production environment.
 3. **Artifact Scanning:** Once pushed to Google Artifact Registry, images undergo static vulnerability analysis. If a critical CVE is detected, the artifact is marked unhealthy and blocked from deployment.

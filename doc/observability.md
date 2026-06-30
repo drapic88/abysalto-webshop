@@ -43,7 +43,7 @@ graph TD
 #### 1. Distributed Tracing (Latency & Dependency Tracking)
 - **Framework:** Standard Java microservices use **Micrometer Tracing** (bridging to OpenTelemetry) to propagate context.
 - **Trace Context Propagation:** Every external request passing through the API Gateway is injected with a standard W3C Trace Context header (`traceparent`). This token traverses down through the Spring Cloud Gateway (BFF), inter-service gRPC calls, Pub/Sub events, and database actions.
-- **Backend Storage:** Traces are batch-exported to **Google Cloud Trace**. Developers can visualize a user's entire checkout journey, pinpointing exactly which microservice or Cloud Spanner database query added latency.
+- **Backend Storage:** Traces are batch-exported to **Google Cloud Trace**. Developers can visualize a user's entire checkout journey, pinpointing exactly which microservice or PostgreSQL database query added latency.
 
 #### 2. Centralized Metrics (Performance & Sizing)
 - **Framework:** **Spring Boot Actuator** combined with **Micrometer** aggregates application-level statistics.
@@ -101,7 +101,7 @@ spec:
 #### Readiness Probes (`/actuator/health/readiness`)
 - **Purpose:** Verifies if the container is fully prepared to handle consumer requests.
 - **Logic:** Performs deep checks against active connections:
-  - Can it successfully connect to the service's logical Cloud Spanner database?
+  - Can it successfully connect to the service's logical PostgreSQL database?
   - Is the Redis cluster cache pingable?
   - Is the connection to GCP Pub/Sub broker established?
 - **Behavior:** If any downstream dependency is broken, GKE stops routing HTTP/gRPC traffic to this specific pod replica, preventing checkout or catalog errors, while other healthy pods process the volume.
@@ -117,7 +117,7 @@ Our SRE operations center on Google Cloud Monitoring alert policies configured a
 | **Latency** | HTTP/gRPC Request Duration (p95 / p99) | `p99 Latency > 1500ms` for 5 consecutive minutes. | PagerDuty (High Priority) |
 | **Traffic** | Request Rate (HTTP requests per second) | Dynamic baseline anomaly detection (`+/- 40%` deviance). | Slack Notification |
 | **Errors** | HTTP 5xx error rate / gRPC Status non-OK | `HTTP 5xx rate > 1%` of total traffic for 2 minutes. | PagerDuty (High Priority) |
-| **Saturation** | Pod CPU & Memory limits / DB Connection Pool | `CPU / Memory Usage > 85%` or Spanner CPU utilization `> 65%`. | Slack + Auto-scale Trigger |
+| **Saturation** | Pod CPU & Memory limits / DB Connection Pool | `CPU / Memory Usage > 85%` or Cloud SQL PostgreSQL CPU utilization `> 80%`. | Slack + Auto-scale Trigger |
 
 - **Alert Routing:**
   - **High Severity (P1):** Triggers PagerDuty to wake up the on-call engineer and notifies the DevOps Slack channel.

@@ -52,7 +52,7 @@ graph TD
     Order -->|Validate Prices / Stock| Catalog
 
     %% Databases
-    subgraph Databases ["Spanner Cluster (abysalto-primary)"]
+    subgraph Databases ["PostgreSQL Instance (abysalto-primary)"]
         CatalogDB[("catalog_db")]
         OrderDB[("order_db")]
         CustomerDB[("customer_db")]
@@ -141,7 +141,7 @@ Price Evaluation Pipeline Order:
 ### 3.2. Performance Optimization via Redis Caching
 Evaluating contract rules and hierarchies at high volumes can become database-intensive. 
 *   Custom B2B contract sheets and catalog filters are cached inside **GCP Memorystore for Redis** using an organization-keyed hash (e.g., `b2b:org:acme-123:prices`).
-*   Cache invalidation is triggered event-driven via **Cloud Spanner Change Streams** whenever contract records are updated in `catalog_db`.
+*   Cache invalidation is triggered event-driven via **PostgreSQL Database Triggers** or application event publishers whenever contract records are updated in `catalog_db`.
 
 ---
 
@@ -168,45 +168,44 @@ graph TD
 
 ---
 
-## 5. Transactional Database Schema Extensions (Cloud Spanner)
+## 5. Transactional Database Schema Extensions (PostgreSQL)
 
-Adhering to our logical DB-per-service paradigm, we extend the Google Cloud Spanner schemas. All primary keys utilize random UUID v4 values (`STRING(36)`) to eliminate database hotspotting.
+Adhering to our logical DB-per-service paradigm, we extend the Google Cloud SQL for PostgreSQL schemas. All primary keys utilize random native `UUID` values to eliminate any database hotspotting.
 
 ### 5.1. Customer Service Database (`customer_db`)
 
 ```sql
 -- Represents a B2B corporate customer account
 CREATE TABLE Organizations (
-    OrganizationId STRING(36) NOT NULL,
-    Name STRING(255) NOT NULL,
-    CreditLimit NUMERIC NOT NULL,
-    AvailableCredit NUMERIC NOT NULL,
-    PaymentTerms STRING(50) NOT NULL, -- e.g., NET_30, NET_60, DUE_ON_RECEIPT
-    IsActive BOOL NOT NULL,
-    CreatedAt TIMESTAMP NOT NULL,
-    UpdatedAt TIMESTAMP NOT NULL,
-) PRIMARY KEY (OrganizationId);
+    OrganizationId UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    Name VARCHAR(255) NOT NULL,
+    CreditLimit NUMERIC(12, 4) NOT NULL,
+    AvailableCredit NUMERIC(12, 4) NOT NULL,
+    PaymentTerms VARCHAR(50) NOT NULL, -- e.g., NET_30, NET_60, DUE_ON_RECEIPT
+    IsActive BOOLEAN NOT NULL DEFAULT TRUE,
+    CreatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    UpdatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
 
 -- Departments or sub-entities within a B2B corporate customer
 CREATE TABLE OrganizationDepartments (
-    OrganizationId STRING(36) NOT NULL,
-    DepartmentId STRING(36) NOT NULL,
-    Name STRING(255) NOT NULL,
-    CreatedAt TIMESTAMP NOT NULL,
-) PRIMARY KEY (OrganizationId, DepartmentId),
-  INTERLEAVE IN PARENT Organizations ON DELETE CASCADE;
+    DepartmentId UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    OrganizationId UUID NOT NULL REFERENCES Organizations(OrganizationId) ON DELETE CASCADE,
+    Name VARCHAR(255) NOT NULL,
+    CreatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
 
 -- Associates individual B2C Customer Profiles to an Organization with specific roles
 CREATE TABLE OrganizationMembers (
-    OrganizationId STRING(36) NOT NULL,
-    CustomerId STRING(36) NOT NULL, -- References CustomerId from B2C profile
-    DepartmentId STRING(36),
-    Role STRING(50) NOT NULL, -- e.g., BUYER, APPROVER, ADMIN
-    DiscretionaryLimit NUMERIC, -- Purchase limit without requiring approval
-    IsActive BOOL NOT NULL,
-    JoinedAt TIMESTAMP NOT NULL,
-) PRIMARY KEY (OrganizationId, CustomerId),
-  INTERLEAVE IN PARENT Organizations ON DELETE CASCADE;
+    OrganizationId UUID NOT NULL REFERENCES Organizations(OrganizationId) ON DELETE CASCADE,
+    CustomerId UUID NOT NULL, -- References CustomerId from B2C profile
+    DepartmentId UUID REFERENCES OrganizationDepartments(DepartmentId) ON DELETE SET NULL,
+    Role VARCHAR(50) NOT NULL, -- e.g., BUYER, APPROVER, ADMIN
+    DiscretionaryLimit NUMERIC(12, 4), -- Purchase limit without requiring approval
+    IsActive BOOLEAN NOT NULL DEFAULT TRUE,
+    JoinedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY (OrganizationId, CustomerId)
+);
 ```
 
 ### 5.2. Catalog Service Database (`catalog_db`)
@@ -214,35 +213,37 @@ CREATE TABLE OrganizationMembers (
 ```sql
 -- B2B Contract agreements binding organizations to custom commercials
 CREATE TABLE Contracts (
-    ContractId STRING(36) NOT NULL,
-    OrganizationId STRING(36) NOT NULL, -- Logical link to Organizations table
-    StartDate TIMESTAMP NOT NULL,
-    EndDate TIMESTAMP NOT NULL,
-    IsActive BOOL NOT NULL,
-    CreatedAt TIMESTAMP NOT NULL,
-) PRIMARY KEY (ContractId);
+    ContractId UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    OrganizationId UUID NOT NULL, -- Logical link to Organizations table
+    StartDate TIMESTAMP WITH TIME ZONE NOT NULL,
+    EndDate TIMESTAMP WITH TIME ZONE NOT NULL,
+    IsActive BOOLEAN NOT NULL DEFAULT TRUE,
+    CreatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
 
 -- Negotiated custom pricing and volume tiers for specific SKUs
 CREATE TABLE ContractItems (
-    ContractId STRING(36) NOT NULL,
-    SkuCode STRING(50) NOT NULL, -- References Sku Code in Catalog
-    BaseContractPrice NUMERIC NOT NULL,
-    Tier1MinQty INT64,
-    Tier1Price NUMERIC,
-    Tier2MinQty INT64,
-    Tier2Price NUMERIC,
-    CreatedAt TIMESTAMP NOT NULL,
-    UpdatedAt TIMESTAMP NOT NULL,
-) PRIMARY KEY (ContractId, SkuCode),
-  INTERLEAVE IN PARENT Contracts ON DELETE CASCADE;
+    ContractItemId UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    ContractId UUID NOT NULL REFERENCES Contracts(ContractId) ON DELETE CASCADE,
+    SkuCode VARCHAR(50) NOT NULL, -- References Sku Code in Catalog
+    BaseContractPrice NUMERIC(12, 4) NOT NULL,
+    Tier1MinQty INT,
+    Tier1Price NUMERIC(12, 4),
+    Tier2MinQty INT,
+    Tier2Price NUMERIC(12, 4),
+    CreatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    UpdatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    UNIQUE (ContractId, SkuCode)
+);
 
 -- Restricts catalog visibility to specific SKUs for an Organization
 CREATE TABLE ContractAssortments (
-    OrganizationId STRING(36) NOT NULL,
-    SkuCode STRING(50) NOT NULL,
-    IsAllowed BOOL NOT NULL,
-    CreatedAt TIMESTAMP NOT NULL,
-) PRIMARY KEY (OrganizationId, SkuCode);
+    OrganizationId UUID NOT NULL,
+    SkuCode VARCHAR(50) NOT NULL,
+    IsAllowed BOOLEAN NOT NULL DEFAULT TRUE,
+    CreatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY (OrganizationId, SkuCode)
+);
 ```
 
 ### 5.3. Order Service Database (`order_db`)
@@ -250,15 +251,15 @@ CREATE TABLE ContractAssortments (
 ```sql
 -- Extends standard order schema with corporate and approval attributes
 CREATE TABLE B2BOrderExtensions (
-    OrderId STRING(36) NOT NULL,
-    OrganizationId STRING(36) NOT NULL,
-    PurchaseOrderNumber STRING(100),
-    PaymentTerms STRING(50) NOT NULL,
-    ApprovalStatus STRING(50) NOT NULL, -- e.g., APPROVED, PENDING_APPROVAL, REJECTED
-    ApproverCustomerId STRING(36),
-    ApprovalNotes STRING(1000),
-    ApprovedAt TIMESTAMP,
-) PRIMARY KEY (OrderId);
+    OrderId UUID PRIMARY KEY,
+    OrganizationId UUID NOT NULL,
+    PurchaseOrderNumber VARCHAR(100),
+    PaymentTerms VARCHAR(50) NOT NULL,
+    ApprovalStatus VARCHAR(50) NOT NULL, -- e.g., APPROVED, PENDING_APPROVAL, REJECTED
+    ApproverCustomerId UUID,
+    ApprovalNotes VARCHAR(1000),
+    ApprovedAt TIMESTAMP WITH TIME ZONE
+);
 ```
 
 ---
@@ -273,7 +274,7 @@ sequenceDiagram
     actor Buyer as Corporate Buyer
     participant Checkout as Order Service (GKE)
     participant Customer as Customer Service (GKE)
-    participant Spanner as Spanner Database
+    participant Postgres as PostgreSQL Database
 
     Buyer->>Checkout: Click Submit Order
     activate Checkout
@@ -283,24 +284,24 @@ sequenceDiagram
     Customer-->>Checkout: Return Role (BUYER), Limit $5,000, Org ID (acme-123)
     
     alt Order Total > Discretionary Limit ($5,000)
-        Checkout->>Spanner: Save Order as PENDING_APPROVAL
+        Checkout->>Postgres: Save Order as PENDING_APPROVAL
         Checkout-->>Buyer: Return Success (Pending Corporate Approval)
     else Order Total <= Discretionary Limit
         %% Step 2: Validate Credit Limit
         Checkout->>Customer: Check & Reserve Organization Credit
         activate Customer
         Note over Customer: Transaction on customer_db
-        Customer->>Spanner: Query Organization (AvailableCredit)
+        Customer->>Postgres: Query Organization (AvailableCredit)
         alt AvailableCredit < Order Total
             Customer-->>Checkout: Return Error (Insolvent/Credit Insufficient)
             Checkout-->>Buyer: Return Error (Credit Limit Exceeded)
         else AvailableCredit >= Order Total
-            Customer->>Spanner: Deduct AvailableCredit by Order Total
+            Customer->>Postgres: Deduct AvailableCredit by Order Total
             Customer-->>Checkout: Confirm Credit Reserved
             deactivate Customer
             
             %% Step 3: Complete Order
-            Checkout->>Spanner: Save Order as APPROVED / PROCESSING
+            Checkout->>Postgres: Save Order as APPROVED / PROCESSING
             Checkout-->>Buyer: Return Success (Order Confirmed)
         end
     end
@@ -316,5 +317,5 @@ Bulk B2B orders may contain thousands of line items. Standard REST threads are r
 
 ## 7. Next Steps & Implementation Pipeline
 1.  **GCP Apigee Policy Setup:** Configure the Partner Edge policies on Apigee to implement mTLS and partner-based quota profiles.
-2.  **DDL Deployment:** Apply the Spanner DDL schema updates for `customer_db`, `catalog_db`, and `order_db` in the development environments.
+2.  **DDL Deployment:** Apply the PostgreSQL DDL schema updates for `customer_db`, `catalog_db`, and `order_db` in the development environments.
 3.  **B2B Service Bootstrapping:** Initialize the `b2b-service` module in our Spring Boot monorepo to house custom enterprise workflows.

@@ -54,7 +54,7 @@ graph TD
     PubSub -->|Subscribe: inventory-updates| EbayAdapter
 
     %% Core Databases
-    subgraph Databases ["Spanner Cluster (abysalto-primary)"]
+    subgraph Databases ["PostgreSQL Instance (abysalto-primary)"]
         CatalogDB[("catalog_db")]
         OrderDB[("order_db")]
     end
@@ -75,8 +75,8 @@ graph TD
 Every external marketplace has unique metadata guidelines, categorizations, image sizing limits, and attribute structures. 
 
 ### 2.1. Dual-Tier Database Architecture
-To handle this taxonomy translation at scale without taxing the high-performance relational `catalog_db` (on Cloud Spanner), we deploy a dual-tier storage strategy:
-1.  **Master Product Catalog (Cloud Spanner - `catalog_db`):** Standard relational tables (`Products`, `Skus`) representing the single source of truth for base specifications, prices, and attributes.
+To handle this taxonomy translation at scale without taxing the primary relational `catalog_db` (on PostgreSQL), we deploy a dual-tier storage strategy:
+1.  **Master Product Catalog (PostgreSQL - `catalog_db`):** Standard relational tables representing the single source of truth for base specifications, prices, and attributes.
 2.  **Channel Listing Mapping (GCP Firestore - NoSQL):** A highly flexible, document-oriented database that stores the translated, marketplace-ready payloads.
 
 ```text
@@ -95,7 +95,7 @@ abysalto-firestore/
 ```
 
 ### 2.2. Product Feed Synchronization
-A dedicated **PIM Sync Worker** monitors changes inside `catalog_db` via Spanner Change Streams. When a product is modified, the worker:
+A dedicated **PIM Sync Worker** monitors changes inside `catalog_db` via PostgreSQL CDC (Change Data Capture) or application events. When a product is modified, the worker:
 1.  Fetches category translations from `catalog-mappings`.
 2.  Formats the product data into specific JSON/XML schemas matching the target marketplace constraints.
 3.  Saves the compiled documents into Firestore (`marketplace-listings`).
@@ -112,17 +112,17 @@ sequenceDiagram
     autonumber
     actor Customer as B2C Web Shop / B2B Client
     participant Checkout as Order Service (OMS)
-    participant Outbox as Spanner Outbox Table
+    participant Outbox as Postgres Outbox Table
     participant PubSub as GCP Pub/Sub (inventory-updates)
     participant Adapter as Amazon Adapter Service
     participant External as Amazon SP-API
 
     Customer->>Checkout: Place Order (buys last blue shoe)
     activate Checkout
-    Note over Checkout: Execute Spanner Transaction
+    Note over Checkout: Execute PostgreSQL Transaction
     Checkout->>Checkout: Deduct 1 unit from Skus Table
     Checkout->>Outbox: Write "InventoryDeducted" outbox record
-    Note over Checkout: Commit Spanner Transaction
+    Note over Checkout: Commit PostgreSQL Transaction
     deactivate Checkout
     
     Note over Outbox,PubSub: Outbox Poller reads & publishes event
@@ -143,8 +143,8 @@ sequenceDiagram
 
 ### 3.1. Transactional Outbox Pattern
 To guarantee that every checkout inventory change triggers a synchronization downstream without relying on slow, unreliable dual-database writes:
-1.  During checkout, the `order-service` updates inventory in the Spanner `catalog_db` and inserts a message into an `Outbox` table **inside the same ACID transaction**.
-2.  A highly optimized background daemon (e.g., running via Debezium or a Cloud Run Spanner Event Poller) reads the outbox table and publishes an `InventoryUpdated` event to the `inventory-updates` Pub/Sub topic.
+1.  During checkout, the `order-service` updates inventory in the PostgreSQL `catalog_db` and inserts a message into an `Outbox` table **inside the same ACID transaction**.
+2.  A highly optimized background daemon (e.g., running via Debezium or an application-layer poller) reads the outbox table and publishes an `InventoryUpdated` event to the `inventory-updates` Pub/Sub topic.
 3.  The marketplace adapters consume this event to push real-time stock levels back to the external networks.
 
 ### 3.2. Intelligent Inventory Buffers & Throttling
@@ -165,7 +165,7 @@ Orders originating from external platforms must be translated into our internal 
 1.  **Ingestion Endpoints:** Lightweight, highly available GKE pods on the Adapters layer expose secure endpoints to receive marketplace webhooks (or poll marketplace order APIs every 60 seconds).
 2.  **Normalization:** The Adapter parses the external schema (e.g., converting Amazon’s `AmazonOrderId`, `PurchaseDate`, and customized tax layouts) into our standard internal JSON structure.
 3.  **Durable Pub/Sub Buffering:** The normalized JSON is published to the `marketplace-orders-normalized` Pub/Sub topic.
-4.  **Idempotence Assertion:** The `order-service` consumes the topic. Before writing to the `order_db` on Spanner, it verifies if an order with the metadata key `originChannelId` + `externalOrderId` already exists. This guarantees that duplicate webhooks never generate duplicate orders.
+4.  **Idempotence Assertion:** The `order-service` consumes the topic. Before writing to the `order_db` on PostgreSQL, it verifies if an order with the metadata key `originChannelId` + `externalOrderId` already exists. This guarantees that duplicate webhooks never generate duplicate orders.
 
 ```json
 {
@@ -222,4 +222,4 @@ For transient network timeouts (HTTP 500/503) or unexpected rate limiting (HTTP 
 ## 6. Next Steps & Timeline
 1.  **Deploy Firestore Schema:** Initialize the `catalog-mappings` NoSQL structures in GCP.
 2.  **Mock Adapters Development:** Create a stubbed GKE mock adapter simulating Amazon SP-API responses to validate rate-limiting logic on GCP Cloud Tasks.
-3.  **Outbox Implementation:** Add the Spanner transactional outbox tables and event emitters in the microservices pipeline.
+3.  **Outbox Implementation:** Add the PostgreSQL transactional outbox tables and event emitters in the microservices pipeline.

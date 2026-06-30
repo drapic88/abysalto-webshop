@@ -65,7 +65,7 @@ To ensure a high-performing checkout experience, the platform enforces strict se
 ### 2.2. Offline Fallback & Estimator Engine (Tax Resilience)
 If the circuit breaker opens or a timeout is triggered, the `Order Service` falls back gracefully to a localized **Tax Estimator Engine**:
 
-1.  **Cached Tax Tables:** A lightweight cron job runs every 24 hours to download generalized regional sales tax / VAT rates from our tax provider and writes them into **GCP Memorystore for Redis** (with backup persistence in Cloud Spanner).
+1.  **Cached Tax Tables:** A lightweight cron job runs every 24 hours to download generalized regional sales tax / VAT rates from our tax provider and writes them into **GCP Memorystore for Redis** (with backup persistence in PostgreSQL).
 2.  **Estimation Logic:** If the external API is unreachable, the system queries the local cache using the customer's `ShippingCountryCode` and `ShippingPostalCode` / `ShippingState` to apply a safe, highly accurate estimated tax.
 3.  **Audit Flagging:** The order is flagged in `order_db` with `TaxCalculationMethod = "ESTIMATED"`.
 4.  **Asynchronous Reconciliation:** Once the order is placed, an asynchronous background job re-submits the invoice to the tax portal for exact, final tax calculation, adjusting the final accounting ledger records in the background without affecting the user's checkout experience.
@@ -84,8 +84,8 @@ sequenceDiagram
     autonumber
     participant Client as Client Browser
     participant Order as Order Service
-    participant DB as Cloud Spanner (order_db)
-    participant Outbox as Spanner Change Stream
+    participant DB as PostgreSQL (order_db)
+    participant Outbox as Postgres Outbox Table
     participant Worker as Outbox Event Worker
     participant TaxApp as Fiscalization Adapter
     participant Gov as Govt Tax Administration
@@ -99,8 +99,8 @@ sequenceDiagram
     deactivate Order
 
     activate Outbox
-    DB->>Outbox: Capture Change Stream Event
-    Outbox->>Worker: Stream New Order Event
+    DB->>Outbox: Append Outbox Record
+    Outbox->>Worker: Read and Publish Event
     deactivate Outbox
     activate Worker
 

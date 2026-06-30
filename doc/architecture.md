@@ -68,7 +68,7 @@ graph TD
     %% Database & Cache Layer
     subgraph StorageLayer ["Database & Caching"]
         Cache["In-Memory Cache (GCP Memorystore for Redis)"]
-        PrimaryDB[(Relational DB - GCP Cloud Spanner)]
+        PrimaryDB[(Relational DB - GCP Cloud SQL PostgreSQL)]
         NoSQLDB[(NoSQL DB - GCP Firestore)]
     end
 
@@ -166,16 +166,17 @@ graph TD
 *   **mTLS Mesh:** Internal GKE communication is secured using an Istio service mesh, encrypting internal pod-to-pod traffic automatically.
 
 ### 3.3. Database & Caching Strategy
-*The system implements a strict **Logical Database-per-Service on a shared Cloud Spanner instance** design to prevent database bottlenecks and team coupling while maintaining cost-effective cloud resource usage. For full topology schemas, hotspot mitigations, interleaving parent-child tables, and DDL examples, see the detailed **[Cloud Spanner Database Strategy](database_strategy.md)**.*
+*The system implements a strict **Logical Database-per-Service on a shared Cloud SQL for PostgreSQL instance** design to prevent database bottlenecks and team coupling while maintaining cost-effective cloud resource usage. For full topology schemas, connection pooling configurations, and DDL examples, see the detailed **[PostgreSQL Database Strategy](database_strategy.md)**.*
 
 1.  **Split-Read Catalog Tier (Redis + Elasticsearch):**
     *   **Elasticsearch (Elastic Cloud on GCP):** Powers the search bar, type-ahead/auto-complete, dynamic filtering (facets), and search relevance ranking.
     *   **GCP Memorystore for Redis:** Acts as a high-speed cache for individual Product Detail Page (PDP) requests (direct ID lookups), yielding sub-millisecond retrieval times.
-2.  **Transactional Database Tier (Cloud Spanner):**
-    *   **Logical DB-per-Service on Shared Spanner:** Each team's service (Catalog, Order, Payment, and Customer/Profile) is provisioned with its own logical database (e.g., `catalog_db`, `order_db`, `payment_db`, `customer_db`) on a shared **GCP Cloud Spanner** cluster instance.
+2.  **Transactional Database Tier (Cloud SQL for PostgreSQL):**
+    *   **Logical DB-per-Service on Shared PostgreSQL HA:** Each team's service (Catalog, Order, Payment, and Customer/Profile) is provisioned with its own logical database (e.g., `catalog_db`, `order_db`, `payment_db`, `customer_db`) on a shared **GCP Cloud SQL for PostgreSQL** cluster instance with active read-replicas.
     *   **Zero Direct Cross-Service Queries:** Services are strictly forbidden from querying another service's tables directly. Any inter-service data dependencies (e.g., checkout price validation) are performed via high-speed internal gRPC APIs.
+    *   **PgBouncer Connection Pooling:** Lightweight pooling layers manage high concurrency database connections from dynamic GKE pod scaling.
 3.  **NoSQL Listing Metadata Tier (GCP Firestore):**
-    *   **Firestore for Channel Listing Mappings:** Stores translated product schemas and category-to-marketplace listings without impacting the transactional Spanner databases.
+    *   **Firestore for Channel Listing Mappings:** Stores translated product schemas and category-to-marketplace listings without impacting the transactional PostgreSQL databases.
 
 ### 3.4. Real-Time Processing & Event Streaming
 *   **Event Broker (GCP Pub/Sub):** Asynchronous event-driven communication to decouple checkout processing from notifications, inventory updates, and analytical pipelines.
@@ -203,7 +204,7 @@ Below is the updated mapping of architectural components to native GCP services:
 | **Full-Text Catalog Search** | Elasticsearch (Elastic Cloud on GCP) | Fuzzy matching, category facets, and auto-complete for fast product discovery. |
 | **Caching** | Cloud Memorystore for Redis | Fully managed Redis for sub-millisecond caching of hot data. |
 | **Asynchronous Messaging** | Cloud Pub/Sub | Fully managed, global-scale real-time messaging middleware. |
-| **Relational Database** | Cloud Spanner (Multi-Region) | Logical DB-per-service configuration providing global scalability (including Catalog, Orders, Payments, and Profiles) with strong transactional consistency. |
+| **Relational Database** | Cloud SQL for PostgreSQL (HA) | Highly available multi-zone relational databases per service with read-replicas for extreme performance and standard tool compatibility. |
 | **NoSQL Database** | GCP Firestore | Storing and caching translated product metadata and Channel Listing Mappings for marketplaces. |
 | **Logging & Monitoring** | Cloud Logging & Cloud Monitoring (Operations Suite) | Centralized metrics, tracing, and log aggregation. See the detailed **[Monitoring & Observability Plan](observability.md)**. |
 
@@ -212,6 +213,7 @@ Below is the updated mapping of architectural components to native GCP services:
 ## 5. Key Decisions & Next Steps
 
 1.  **Codebase Bootstrap:** Initialize the Multi-Module Monorepo with Spring Boot 3.x and Java 21, establishing shared `core-common` packages for security and model mapping.
-2.  **Database Strategy Alignment:** Adopt **Logical DB-per-Service on a shared Cloud Spanner instance**, implementing schema isolation per team domain. Detailed specifications, IAM topologies, DDL schemas, and migration patterns are established in the **[Cloud Spanner Database Strategy](database_strategy.md)**.
-3.  **Split-Read Implementation:** Design indexing pipelines to feed real-time catalog changes from Cloud Spanner to both Redis and Elasticsearch via GCP Pub/Sub.
+2.  **Database Strategy Alignment:** Adopt **Logical DB-per-Service on a shared Cloud SQL for PostgreSQL instance**, implementing schema isolation per team domain. Detailed specifications, connection pooling, DDL schemas, and migration patterns are established in the **[PostgreSQL Database Strategy](database_strategy.md)**.
+3.  **Split-Read Implementation:** Design indexing pipelines to feed real-time catalog changes from PostgreSQL to both Redis and Elasticsearch via GCP Pub/Sub.
 4.  **CI/CD Pipeline Design:** Set up build and deployment pipelines targeting GKE, and establish system metrics, distributed tracing, and health checks as defined in the **[Delivery Plan](delivery.md)**.
+

@@ -28,8 +28,8 @@ graph TD
     
     Catalog -->|Direct PDP Read| Redis["GCP Memorystore for Redis Cluster"]
     Catalog -->|Fuzzy Search & Facets| ES["Elasticsearch (Elastic Cloud on GCP)"]
-    Catalog -->|Global Write| Spanner["GCP Cloud Spanner (Multi-Region)"]
-    Order --> Spanner
+    Catalog -->|Global Write| Postgres["Cloud SQL PostgreSQL HA"]
+    Order --> Postgres
 ```
 
 ### 1.1. Edge-First Delivery & Global Caching
@@ -50,12 +50,12 @@ To prevent database bottlenecks under heavy write/read traffic, the catalog util
 *   **High-Speed Cache (Redis Cluster):** Direct product detail lookups (by product ID) query **GCP Memorystore for Redis Cluster** first. If a cache miss occurs, the catalog service reads from the transactional database and populates Redis with an explicit TTL (Time-to-Live).
 *   **Memorystore High Availability:** Redis is configured with automatic failover, replication, and horizontal sharding, ensuring sub-millisecond response times.
 
-### 1.4. Globally Scalable Relational Database (Cloud Spanner)
-Traditional single-instance relational databases become bottlenecks under millions of active users. 
-*   **GCP Cloud Spanner** is selected for transactional consistency combined with infinite horizontal scale. We adopt a **Logical DB-per-Service on a Shared Spanner Instance** design to achieve full domain isolation while optimizing cost. For exhaustive design specifications, topology diagrams, DDL patterns, and migration details, see the **[Cloud Spanner Database Strategy](database_strategy.md)**.
-*   **Multi-Region Deployment:** Spanner replicates database shards across multiple global regions, offering write-anywhere horizontal scalability and high availability (99.999% SLA) with strong transaction isolation.
-*   **Parent-Child Table Interleaving:** Related tables (e.g., `OrderItems` inside `Orders`) are physically interleaved in parent tables. This physically co-locates child rows with their parent rows in storage splits, guaranteeing ultra-fast, single-shard atomic mutations and index lookups.
-*   **Hotspotting Mitigation:** Because Cloud Spanner stores data sorted by primary key, sequential keys are strictly forbidden. All schemas mandate cryptographically random **UUID v4 (stored as `STRING(36)`)** for primary keys to distribute write operations evenly across all available database splits.
+### 1.4. Highly Available Relational Database (Cloud SQL for PostgreSQL)
+Traditional single-instance databases can become bottlenecks under millions of active users without proper scaling structures.
+*   **GCP Cloud SQL for PostgreSQL** is selected for standard relational stability combined with robust read scaling. We adopt a **Logical DB-per-Service on a Shared Cloud SQL Instance** design to achieve full domain isolation while optimizing cost. For exhaustive design specifications, connection pooling schemas, DDL patterns, and migration details, see the **[PostgreSQL Database Strategy](database_strategy.md)**.
+*   **High-Availability Deployment:** Cloud SQL is configured in a Multi-Zone HA setup for immediate failover. It utilizes geographical **Read Replicas** to offload read-heavy workloads.
+*   **Covered Indexes:** Commonly queried fields are appended directly to B-Tree indexes via the `INCLUDE` clause, enabling PostgreSQL to satisfy queries purely from indexes without accessing underlying heap data.
+*   **Optimal UUID Data Type:** Primary keys are typed as native PostgreSQL `UUID`s, which are extremely compact (16 bytes) and indexed faster than text-based identifiers, supporting distributed scale and avoiding insertion hotspots.
 
 ---
 
@@ -142,7 +142,7 @@ Because automated partner systems require high-volume, machine-to-machine integr
 #### 2.4.3. Zero-Trust Internal Communication
 To prevent privilege escalation and token expiration failures, **user tokens are never propagated for inter-service communication**.
 *   **mTLS Network Mesh:** Pod-to-pod communication inside GKE is encrypted and verified automatically at the network layer using an **Istio Service Mesh**.
-*   **Workload Identity:** Downstream services authenticate to GCP services (Cloud Spanner, Pub/Sub, Storage) using GKE Workload Identity, which binds Kubernetes Service Accounts (KSA) directly to secure GCP IAM Roles.
+*   **Workload Identity:** Downstream services authenticate to GCP services (Cloud SQL, Pub/Sub, Storage) using GKE Workload Identity, which binds Kubernetes Service Accounts (KSA) directly to secure GCP IAM Roles or Cloud SQL IAM database login credentials.
 
 #### 2.4.4. Security Architecture Comparison Matrix
 
@@ -171,7 +171,7 @@ graph LR
     end
     
     AnalyticsSvc -->|Real-Time Writes| BigQuery["GCP BigQuery (Real-Time Analytics)"]
-    InventorySvc -->|Sync| Spanner[(Cloud Spanner)]
+    InventorySvc -->|Sync| Postgres[(Cloud SQL PostgreSQL)]
     InventorySvc -->|Invalidate Cache| Redis[Memorystore Redis]
 ```
 
@@ -187,5 +187,5 @@ We leverage **GCP Pub/Sub** as a highly durable, real-time message bus to fully 
 
 ### 3.3. Real-Time Inventory & Stock Coordination
 *   To prevent selling out-of-stock items, product quantities are updated in real-time.
-*   **Transactional Outbox Pattern:** Spring Boot services write business entities and event records within the same transaction to Cloud Spanner, and a background publisher reads the outbox table to emit events to Pub/Sub.
+*   **Transactional Outbox Pattern:** Spring Boot services write business entities and event records within the same transaction to PostgreSQL, and a background publisher reads the outbox table to emit events to Pub/Sub.
 *   **Instant Cache Eviction:** Once inventory events are received, the Catalog Service invalidates local caches and Redis entries for that product instantly, ensuring subsequent buyers get exact availability data.
