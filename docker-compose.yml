@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  # Database Tier (PostgreSQL)
+  db:
+    image: postgres:16-alpine
+    container_name: abysalto-cart-db
+    environment:
+      POSTGRES_DB: cart_db
+      POSTGRES_USER: abysalto_user
+      POSTGRES_PASSWORD: abysalto_secure_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U abysalto_user -d cart_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - abysalto-network
+
+  # Backend REST API Service Tier (Spring Boot 3.x / Java 21)
+  shopping-cart-service:
+    build:
+      context: .
+      dockerfile: shopping-cart-service/Dockerfile
+    container_name: abysalto-shopping-cart-service
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/cart_db
+    depends_on:
+      db:
+        condition: service_healthy
+    develop:
+      watch:
+        - action: rebuild
+          path: ./shopping-cart-service/src
+    networks:
+      - abysalto-network
+
+volumes:
+  postgres_data:
+
+networks:
+  abysalto-network:
+    driver: bridge
