@@ -4,6 +4,10 @@ import com.abysalto.cart.domain.Cart;
 import com.abysalto.cart.domain.Product;
 import com.abysalto.cart.repository.ProductRepository;
 import com.abysalto.cart.service.CartService;
+import com.abysalto.cart.service.MetricsTracker;
+import com.abysalto.cart.domain.CartItem;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -19,6 +23,9 @@ class ShoppingCartApplicationTests {
 
     @Autowired
     private CartService cartService;
+
+    @Autowired
+    private MetricsTracker metricsTracker;
 
     @Test
     void contextLoads() {
@@ -154,4 +161,41 @@ class ShoppingCartApplicationTests {
         assertThrows(IllegalStateException.class, () -> cartService.clearCart(cartId));
         assertThrows(IllegalStateException.class, () -> cartService.checkoutCart(cartId, "John Doe", "123 Main St"));
     }
+
+    @Test
+    void testMetricsTrackerExtended() {
+        // Reset or use a local mock, or verify increment behavior on the autowired bean
+        long initialPurchases = metricsTracker.getCheckoutsCompletedCount();
+        BigDecimal initialSales = metricsTracker.getTotalSalesVolume();
+
+        CartItem item1 = new CartItem(null, UUID.randomUUID(), 3, new BigDecimal("10.00"), "Product A", "USD");
+        CartItem item2 = new CartItem(null, UUID.randomUUID(), 1, new BigDecimal("25.00"), "Product B", "USD");
+
+        metricsTracker.recordCheckout(new BigDecimal("55.00"), List.of(item1, item2));
+
+        assertEquals(initialPurchases + 1, metricsTracker.getCheckoutsCompletedCount());
+        assertEquals(initialSales.add(new BigDecimal("55.00")), metricsTracker.getTotalSalesVolume());
+
+        CartItem item3 = new CartItem(null, UUID.randomUUID(), 2, new BigDecimal("100.00"), "Product A", "USD");
+        metricsTracker.recordCheckout(new BigDecimal("200.00"), List.of(item3));
+
+        // Verify products sold map
+        Map<String, Long> productsSold = metricsTracker.getProductsSold();
+        // Product A total should be 3 + 2 = 5
+        assertEquals(5L, productsSold.get("Product A"));
+        // Product B total should be 1
+        assertEquals(1L, productsSold.get("Product B"));
+
+        // Verify min/max/average
+        assertEquals(0, new BigDecimal("55.00").compareTo(metricsTracker.getMinCartAmount()));
+        assertEquals(0, new BigDecimal("200.00").compareTo(metricsTracker.getMaxCartAmount()));
+
+        Map<String, Object> liveMetrics = metricsTracker.getLiveSystemMetrics();
+        assertNotNull(liveMetrics.get("averageCartAmount"));
+        assertNotNull(liveMetrics.get("minCartAmount"));
+        assertNotNull(liveMetrics.get("maxCartAmount"));
+        assertNotNull(liveMetrics.get("productsSold"));
+        assertNotNull(liveMetrics.get("purchasesCount"));
+    }
 }
+

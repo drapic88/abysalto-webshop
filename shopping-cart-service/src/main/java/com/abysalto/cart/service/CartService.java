@@ -128,7 +128,7 @@ public class CartService {
         }
 
         // Record total sales amount and update conversions
-        metricsTracker.recordCheckout(cart.getTotalAmount());
+        metricsTracker.recordCheckout(cart.getTotalAmount(), cart.getItems());
         metricsTracker.decrementActiveCarts();
 
         // Create random order id to simulate order processing completion
