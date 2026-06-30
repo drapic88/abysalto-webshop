@@ -4,6 +4,8 @@ This document outlines the first draft of the high-level system architecture for
 
 > [!TIP]
 > For detailed implementation strategies on handling extreme scale, secure transactions, and real-time processing pipelines, see the **[Technical Architecture Deep-Dive](deep_dive.md)**.
+> For specifications on our metrics, health checks, alerting, branching strategy, and CI/CD pipelines, see the **[Monitoring, Observability](observability.md)**.
+> For CI/CD pipelines, see the **[Delivery Plan](delivery.md)**.
 
 ---
 
@@ -202,7 +204,7 @@ Below is the updated mapping of architectural components to native GCP services:
 | **Asynchronous Messaging** | Cloud Pub/Sub | Fully managed, global-scale real-time messaging middleware. |
 | **Relational Database** | Cloud Spanner (Multi-Region) | Logical DB-per-service configuration providing global scalability with strong transactional consistency. |
 | **Relational (Profile/User)** | Cloud SQL (PostgreSQL) | Isolated storage for relational profile and configuration data. |
-| **Logging & Monitoring** | Cloud Logging & Cloud Monitoring (Operations Suite) | Centralized metrics, tracing, and log aggregation for quick issue resolution. |
+| **Logging & Monitoring** | Cloud Logging & Cloud Monitoring (Operations Suite) | Centralized metrics, tracing, and log aggregation. See the detailed **[Monitoring, Observability](observability.md)**. |
 
 ---
 
@@ -211,4 +213,4 @@ Below is the updated mapping of architectural components to native GCP services:
 1.  **Codebase Bootstrap:** Initialize the Multi-Module Monorepo with Spring Boot 3.x and Java 21, establishing shared `core-common` packages for security and model mapping.
 2.  **Database Strategy Alignment:** Adopt **Logical DB-per-Service on a shared Cloud Spanner instance**, implementing schema isolation per team domain. Detailed specifications, IAM topologies, DDL schemas, and migration patterns are established in the **[Cloud Spanner Database Strategy](database_strategy.md)**.
 3.  **Split-Read Implementation:** Design indexing pipelines to feed real-time catalog changes from Cloud Spanner to both Redis and Elasticsearch via GCP Pub/Sub.
-4.  **CI/CD Pipeline Design:** Set up build and deployment pipelines (using GitHub Actions, Google Cloud Build, and Artifact Registry) targeting GKE.
+4.  **CI/CD Pipeline Design:** Set up build and deployment pipelines targeting GKE, and establish system metrics, distributed tracing, and health checks as defined in the **[Delivery Plan](delivery.md)**.
