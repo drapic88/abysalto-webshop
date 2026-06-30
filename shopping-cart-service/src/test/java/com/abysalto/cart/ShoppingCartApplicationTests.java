@@ -4,6 +4,7 @@ import com.abysalto.cart.client.CatalogClient;
 import com.abysalto.cart.domain.Cart;
 import com.abysalto.cart.domain.Product;
 import com.abysalto.cart.domain.CartItem;
+import com.abysalto.cart.exception.*;
 import com.abysalto.cart.service.CartService;
 import com.abysalto.cart.service.MetricsTracker;
 import org.junit.jupiter.api.Test;
@@ -89,8 +90,8 @@ class ShoppingCartApplicationTests {
 
         when(catalogClient.getProduct(productId)).thenReturn(Optional.of(testProduct));
 
-        assertThrows(IllegalArgumentException.class, () -> cartService.addItemToCart(cartId, productId, -1));
-        assertThrows(IllegalArgumentException.class, () -> cartService.addItemToCart(cartId, productId, 0));
+        assertThrows(InvalidQuantityException.class, () -> cartService.addItemToCart(cartId, productId, -1));
+        assertThrows(InvalidQuantityException.class, () -> cartService.addItemToCart(cartId, productId, 0));
     }
 
     @Test
@@ -104,8 +105,8 @@ class ShoppingCartApplicationTests {
         when(catalogClient.getProduct(productId)).thenReturn(Optional.of(testProduct));
         cartService.addItemToCart(cartId, productId, 2);
 
-        assertThrows(IllegalArgumentException.class, () -> cartService.updateItemQuantity(cartId, productId, -5));
-        assertThrows(IllegalArgumentException.class, () -> cartService.updateItemQuantity(cartId, productId, 0));
+        assertThrows(InvalidQuantityException.class, () -> cartService.updateItemQuantity(cartId, productId, -5));
+        assertThrows(InvalidQuantityException.class, () -> cartService.updateItemQuantity(cartId, productId, 0));
     }
 
     @Test
@@ -118,7 +119,7 @@ class ShoppingCartApplicationTests {
 
         when(catalogClient.getProduct(productId)).thenReturn(Optional.of(testProduct));
 
-        assertThrows(IllegalArgumentException.class, () -> cartService.addItemToCart(cartId, productId, 6));
+        assertThrows(InsufficientStockException.class, () -> cartService.addItemToCart(cartId, productId, 6));
     }
 
     @Test
@@ -132,13 +133,13 @@ class ShoppingCartApplicationTests {
         when(catalogClient.getProduct(productId)).thenReturn(Optional.of(testProduct));
         cartService.addItemToCart(cartId, productId, 2);
 
-        assertThrows(IllegalArgumentException.class, () -> cartService.updateItemQuantity(cartId, productId, 6));
+        assertThrows(InsufficientStockException.class, () -> cartService.updateItemQuantity(cartId, productId, 6));
     }
 
     @Test
     void testCheckout_EmptyCart_ThrowsException() {
         UUID cartId = UUID.randomUUID();
-        assertThrows(IllegalStateException.class, () -> cartService.checkoutCart(cartId, "Customer", "Address"));
+        assertThrows(EmptyCartCheckoutException.class, () -> cartService.checkoutCart(cartId, "Customer", "Address"));
     }
 
     @Test
@@ -146,7 +147,7 @@ class ShoppingCartApplicationTests {
         UUID cartId = UUID.randomUUID();
         UUID fakeProductId = UUID.randomUUID();
         when(catalogClient.getProduct(fakeProductId)).thenReturn(Optional.empty());
-        assertThrows(IllegalArgumentException.class, () -> cartService.addItemToCart(cartId, fakeProductId, 1));
+        assertThrows(ProductNotFoundException.class, () -> cartService.addItemToCart(cartId, fakeProductId, 1));
     }
 
     @Test
@@ -168,11 +169,11 @@ class ShoppingCartApplicationTests {
         assertNotNull(cart.getCheckedOutAt());
         assertFalse(cart.isEditable());
 
-        assertThrows(IllegalStateException.class, () -> cartService.addItemToCart(cartId, productId, 1));
-        assertThrows(IllegalStateException.class, () -> cartService.updateItemQuantity(cartId, productId, 3));
-        assertThrows(IllegalStateException.class, () -> cartService.removeItemFromCart(cartId, productId));
-        assertThrows(IllegalStateException.class, () -> cartService.clearCart(cartId));
-        assertThrows(IllegalStateException.class, () -> cartService.checkoutCart(cartId, "John Doe", "123 Main St"));
+        assertThrows(CartImmutableException.class, () -> cartService.addItemToCart(cartId, productId, 1));
+        assertThrows(CartImmutableException.class, () -> cartService.updateItemQuantity(cartId, productId, 3));
+        assertThrows(CartImmutableException.class, () -> cartService.removeItemFromCart(cartId, productId));
+        assertThrows(CartImmutableException.class, () -> cartService.clearCart(cartId));
+        assertThrows(CartImmutableException.class, () -> cartService.checkoutCart(cartId, "John Doe", "123 Main St"));
     }
 
     @Test

@@ -47,7 +47,103 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problemDetail);
     }
 
-    // Handle invalid business state or arguments (e.g., out of stock, empty checkout)
+    // Handle invalid quantity input
+    @ExceptionHandler(InvalidQuantityException.class)
+    public ResponseEntity<ProblemDetail> handleInvalidQuantity(InvalidQuantityException ex) {
+        metricsTracker.incrementError();
+
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                ex.getMessage()
+        );
+        problemDetail.setTitle("Invalid Quantity");
+        problemDetail.setType(URI.create("https://abysalto.com/errors/invalid-quantity"));
+        problemDetail.setProperty("timestamp", Instant.now());
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problemDetail);
+    }
+
+    // Handle product not found
+    @ExceptionHandler(ProductNotFoundException.class)
+    public ResponseEntity<ProblemDetail> handleProductNotFound(ProductNotFoundException ex) {
+        metricsTracker.incrementError();
+
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.NOT_FOUND,
+                ex.getMessage()
+        );
+        problemDetail.setTitle("Product Not Found");
+        problemDetail.setType(URI.create("https://abysalto.com/errors/product-not-found"));
+        problemDetail.setProperty("timestamp", Instant.now());
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(problemDetail);
+    }
+
+    // Handle empty cart checkout
+    @ExceptionHandler(EmptyCartCheckoutException.class)
+    public ResponseEntity<ProblemDetail> handleEmptyCartCheckout(EmptyCartCheckoutException ex) {
+        metricsTracker.incrementError();
+
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                ex.getMessage()
+        );
+        problemDetail.setTitle("Empty Cart Checkout");
+        problemDetail.setType(URI.create("https://abysalto.com/errors/empty-cart-checkout"));
+        problemDetail.setProperty("timestamp", Instant.now());
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problemDetail);
+    }
+
+    // Handle cart immutable state (post-checkout modifications)
+    @ExceptionHandler(CartImmutableException.class)
+    public ResponseEntity<ProblemDetail> handleCartImmutable(CartImmutableException ex) {
+        metricsTracker.incrementError();
+
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT,
+                ex.getMessage()
+        );
+        problemDetail.setTitle("Cart Is Immutable");
+        problemDetail.setType(URI.create("https://abysalto.com/errors/cart-immutable"));
+        problemDetail.setProperty("timestamp", Instant.now());
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(problemDetail);
+    }
+
+    // Handle stock insufficiency
+    @ExceptionHandler(InsufficientStockException.class)
+    public ResponseEntity<ProblemDetail> handleInsufficientStock(InsufficientStockException ex) {
+        metricsTracker.incrementError();
+
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT,
+                ex.getMessage()
+        );
+        problemDetail.setTitle("Insufficient Stock");
+        problemDetail.setType(URI.create("https://abysalto.com/errors/insufficient-stock"));
+        problemDetail.setProperty("timestamp", Instant.now());
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(problemDetail);
+    }
+
+    // Handle integration issues with the Catalog Service
+    @ExceptionHandler(CatalogServiceException.class)
+    public ResponseEntity<ProblemDetail> handleCatalogServiceError(CatalogServiceException ex) {
+        metricsTracker.incrementError();
+
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_GATEWAY,
+                ex.getMessage()
+        );
+        problemDetail.setTitle("Catalog Service Failure");
+        problemDetail.setType(URI.create("https://abysalto.com/errors/catalog-service-failure"));
+        problemDetail.setProperty("timestamp", Instant.now());
+
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(problemDetail);
+    }
+
+    // Handle invalid business state or arguments (e.g., fallback for non-custom exceptions)
     @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class})
     public ResponseEntity<ProblemDetail> handleBusinessExceptions(RuntimeException ex) {
         metricsTracker.incrementError();

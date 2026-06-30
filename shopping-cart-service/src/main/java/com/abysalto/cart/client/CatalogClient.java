@@ -1,5 +1,6 @@
 package com.abysalto.cart.client;
 
+import com.abysalto.cart.exception.CatalogServiceException;
 import com.abysalto.cart.domain.Product;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -43,7 +44,7 @@ public class CatalogClient {
                     .retrieve()
                     .toBodilessEntity();
         } catch (RestClientException e) {
-            throw new IllegalStateException("Failed to deduct stock for product " + productId + " in Catalog Service: " + e.getMessage(), e);
+            throw new CatalogServiceException("Failed to deduct stock for product " + productId + " in Catalog Service: " + e.getMessage(), e);
         }
     }
 }

@@ -3,6 +3,7 @@ package com.abysalto.cart.service;
 import com.abysalto.cart.client.CatalogClient;
 import com.abysalto.cart.domain.Cart;
 import com.abysalto.cart.domain.Product;
+import com.abysalto.cart.exception.*;
 import com.abysalto.cart.repository.CartRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,21 +38,21 @@ public class CartService {
         Cart cart = getOrCreateCart(cartId);
         if (!cart.isEditable()) {
             metricsTracker.incrementError();
-            throw new IllegalStateException("Cannot modify a cart after checkout has been completed.");
+            throw new CartImmutableException("Cannot modify a cart after checkout has been completed.");
         }
         if (quantity <= 0) {
             metricsTracker.incrementError();
-            throw new IllegalArgumentException("Quantity must be greater than zero.");
+            throw new InvalidQuantityException("Quantity must be greater than zero.");
         }
         Product product = catalogClient.getProduct(productId)
                 .orElseThrow(() -> {
                     metricsTracker.incrementError();
-                    return new IllegalArgumentException("Product not found with ID: " + productId);
+                    return new ProductNotFoundException("Product not found with ID: " + productId);
                 });
 
         if (product.getStockQuantity() < quantity) {
             metricsTracker.incrementError();
-            throw new IllegalArgumentException("Insufficient stock for product: " + product.getName() + ". Available: " + product.getStockQuantity());
+            throw new InsufficientStockException("Insufficient stock for product: " + product.getName() + ". Available: " + product.getStockQuantity());
         }
 
         cart.addItem(product, quantity);
@@ -63,21 +64,21 @@ public class CartService {
         Cart cart = getOrCreateCart(cartId);
         if (!cart.isEditable()) {
             metricsTracker.incrementError();
-            throw new IllegalStateException("Cannot modify a cart after checkout has been completed.");
+            throw new CartImmutableException("Cannot modify a cart after checkout has been completed.");
         }
         if (quantity <= 0) {
             metricsTracker.incrementError();
-            throw new IllegalArgumentException("Quantity must be greater than zero.");
+            throw new InvalidQuantityException("Quantity must be greater than zero.");
         }
         Product product = catalogClient.getProduct(productId)
                 .orElseThrow(() -> {
                     metricsTracker.incrementError();
-                    return new IllegalArgumentException("Product not found with ID: " + productId);
+                    return new ProductNotFoundException("Product not found with ID: " + productId);
                 });
 
         if (quantity > product.getStockQuantity()) {
             metricsTracker.incrementError();
-            throw new IllegalArgumentException("Requested quantity of " + quantity + " exceeds available stock: " + product.getStockQuantity());
+            throw new InsufficientStockException("Requested quantity of " + quantity + " exceeds available stock: " + product.getStockQuantity());
         }
 
         cart.updateItemQuantity(productId, quantity);
@@ -88,7 +89,7 @@ public class CartService {
         Cart cart = getOrCreateCart(cartId);
         if (!cart.isEditable()) {
             metricsTracker.incrementError();
-            throw new IllegalStateException("Cannot modify a cart after checkout has been completed.");
+            throw new CartImmutableException("Cannot modify a cart after checkout has been completed.");
         }
         cart.removeItem(productId);
         return cartRepository.save(cart);
@@ -98,7 +99,7 @@ public class CartService {
         Cart cart = getOrCreateCart(cartId);
         if (!cart.isEditable()) {
             metricsTracker.incrementError();
-            throw new IllegalStateException("Cannot modify a cart after checkout has been completed.");
+            throw new CartImmutableException("Cannot modify a cart after checkout has been completed.");
         }
         cart.clear();
         return cartRepository.save(cart);
@@ -108,20 +109,20 @@ public class CartService {
         Cart cart = getOrCreateCart(cartId);
         if (!cart.isEditable()) {
             metricsTracker.incrementError();
-            throw new IllegalStateException("Cart has already been checked out.");
+            throw new CartImmutableException("Cart has already been checked out.");
         }
         if (cart.getItems().isEmpty()) {
             metricsTracker.incrementError();
-            throw new IllegalStateException("Cannot checkout an empty shopping cart.");
+            throw new EmptyCartCheckoutException("Cannot checkout an empty shopping cart.");
         }
 
         // Validate and deduct stock for each item in the cart via Catalog Service
         for (var item : cart.getItems()) {
             Product product = catalogClient.getProduct(item.getProductId())
-                    .orElseThrow(() -> new IllegalArgumentException("Product not found during checkout: " + item.getProductId()));
+                    .orElseThrow(() -> new ProductNotFoundException("Product not found during checkout: " + item.getProductId()));
             if (product.getStockQuantity() < item.getQuantity()) {
                 metricsTracker.incrementError();
-                throw new IllegalStateException("Insufficient stock for product " + product.getName() + " during checkout. Required: " + item.getQuantity());
+                throw new InsufficientStockException("Insufficient stock for product " + product.getName() + " during checkout. Required: " + item.getQuantity());
             }
             // Deduct stock programmatically via CatalogClient
             catalogClient.deductStock(item.getProductId(), item.getQuantity());
