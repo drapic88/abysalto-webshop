@@ -6,6 +6,8 @@ This document outlines the first draft of the high-level system architecture for
 > For detailed implementation strategies on handling extreme scale, secure transactions, and real-time processing pipelines, see the **[Technical Architecture Deep-Dive](deep_dive.md)**.
 > For specifications on metrics, health checks, and alerting, see the **[Monitoring & Observability Plan](observability.md)**.
 > For branching strategy, environment mappings, and CI/CD pipelines, see the **[Delivery Plan](delivery.md)**.
+> For formal architectural justifications and trade-off analyses, check out our **[Architecture Decision Records Registry (ADR)](adr/README.md)**.
+
 
 
 ---
