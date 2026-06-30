@@ -16,14 +16,10 @@ We decided to build the backend business logic on **Java 21** using **Spring Boo
 
 ```text
 abysalto-webshop/  (Git Monorepo)
-├── pom.xml or build.gradle (Root configuration)
+├── build.gradle (Root configuration)
 ├── doc/ (Documentation & ADRs)
-└── backend-modules/
-    ├── core-shared-library/
-    ├── catalog-service/
-    ├── order-service/
-    ├── payment-service/
-    └── notification-service/
+├── shopping-cart-service/ (Java Backend Service)
+└── web-shop/ (Next.js Frontend App)
 ```
 
 ### Key Rationale
