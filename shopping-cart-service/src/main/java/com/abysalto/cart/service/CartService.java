@@ -6,6 +6,8 @@ import com.abysalto.cart.repository.CartRepository;
 import com.abysalto.cart.repository.ProductRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Service
@@ -137,7 +139,7 @@ public class CartService {
                  orderId, customerName, cart.getTotalAmount()));
 
         // Mark the shopping cart as checked out
-        cart.setCheckedOutAt(java.time.LocalDateTime.now());
+        cart.setCheckedOutAt(LocalDateTime.now());
         cartRepository.save(cart);
 
         return orderId;
