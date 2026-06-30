@@ -1,9 +1,9 @@
 package com.abysalto.cart.service;
 
+import com.abysalto.cart.client.CatalogClient;
 import com.abysalto.cart.domain.Cart;
 import com.abysalto.cart.domain.Product;
 import com.abysalto.cart.repository.CartRepository;
-import com.abysalto.cart.repository.ProductRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,12 +15,12 @@ import java.util.UUID;
 public class CartService {
 
     private final CartRepository cartRepository;
-    private final ProductRepository productRepository;
+    private final CatalogClient catalogClient;
     private final MetricsTracker metricsTracker;
 
-    public CartService(CartRepository cartRepository, ProductRepository productRepository, MetricsTracker metricsTracker) {
+    public CartService(CartRepository cartRepository, CatalogClient catalogClient, MetricsTracker metricsTracker) {
         this.cartRepository = cartRepository;
-        this.productRepository = productRepository;
+        this.catalogClient = catalogClient;
         this.metricsTracker = metricsTracker;
     }
 
@@ -43,7 +43,7 @@ public class CartService {
             metricsTracker.incrementError();
             throw new IllegalArgumentException("Quantity must be greater than zero.");
         }
-        Product product = productRepository.findById(productId)
+        Product product = catalogClient.getProduct(productId)
                 .orElseThrow(() -> {
                     metricsTracker.incrementError();
                     return new IllegalArgumentException("Product not found with ID: " + productId);
@@ -69,7 +69,7 @@ public class CartService {
             metricsTracker.incrementError();
             throw new IllegalArgumentException("Quantity must be greater than zero.");
         }
-        Product product = productRepository.findById(productId)
+        Product product = catalogClient.getProduct(productId)
                 .orElseThrow(() -> {
                     metricsTracker.incrementError();
                     return new IllegalArgumentException("Product not found with ID: " + productId);
@@ -115,16 +115,16 @@ public class CartService {
             throw new IllegalStateException("Cannot checkout an empty shopping cart.");
         }
 
-        // Deduct inventory stock for each product in the cart
+        // Validate and deduct stock for each item in the cart via Catalog Service
         for (var item : cart.getItems()) {
-            Product product = productRepository.findById(item.getProductId())
+            Product product = catalogClient.getProduct(item.getProductId())
                     .orElseThrow(() -> new IllegalArgumentException("Product not found during checkout: " + item.getProductId()));
             if (product.getStockQuantity() < item.getQuantity()) {
                 metricsTracker.incrementError();
                 throw new IllegalStateException("Insufficient stock for product " + product.getName() + " during checkout. Required: " + item.getQuantity());
             }
-            product.setStockQuantity(product.getStockQuantity() - item.getQuantity());
-            productRepository.save(product);
+            // Deduct stock programmatically via CatalogClient
+            catalogClient.deductStock(item.getProductId(), item.getQuantity());
         }
 
         // Record total sales amount and update conversions

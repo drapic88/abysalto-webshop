@@ -21,6 +21,42 @@ services:
     networks:
       - abysalto-network
 
+  # Catalog Database Tier (PostgreSQL)
+  catalog-db:
+    image: postgres:16-alpine
+    container_name: abysalto-catalog-db
+    environment:
+      POSTGRES_DB: catalog_db
+      POSTGRES_USER: abysalto_user
+      POSTGRES_PASSWORD: abysalto_secure_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - catalog_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U abysalto_user -d catalog_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - abysalto-network
+
+  # Redis Cache Tier
+  redis:
+    image: redis:7-alpine
+    container_name: abysalto-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - abysalto-network
+
   # Backend REST API Service Tier (Spring Boot 3.x / Java 21)
   shopping-cart-service:
     build:
@@ -32,8 +68,11 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/cart_db
+      - SPRING_DATA_REDIS_HOST=redis
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     develop:
       watch:
@@ -42,8 +81,34 @@ services:
     networks:
       - abysalto-network
 
+  # Catalog REST API Service Tier (Spring Boot 3.x / Java 21)
+  catalog-service:
+    build:
+      context: .
+      dockerfile: catalog-service/Dockerfile
+    container_name: abysalto-catalog-service
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://catalog-db:5432/catalog_db
+      - SPRING_DATA_REDIS_HOST=redis
+    depends_on:
+      catalog-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    develop:
+      watch:
+        - action: rebuild
+          path: ./catalog-service/src
+    networks:
+      - abysalto-network
+
 volumes:
   postgres_data:
+  catalog_postgres_data:
+  redis_data:
 
 networks:
   abysalto-network:

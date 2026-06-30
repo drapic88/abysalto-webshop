@@ -1,2 +1,4 @@
 rootProject.name = 'abysalto-webshop'
 include 'shopping-cart-service'
+include 'catalog-service'
+

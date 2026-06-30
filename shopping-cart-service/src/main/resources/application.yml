@@ -36,6 +36,10 @@ management:
     health:
       show-details: always
 
+catalog:
+  service:
+    url: http://localhost:8081
+
 server:
   port: 8080
 
@@ -55,3 +59,8 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: false
+
+catalog:
+  service:
+    url: http://catalog-service:8081
+

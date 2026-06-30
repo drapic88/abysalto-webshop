@@ -1,6 +1,6 @@
-package com.abysalto.cart.repository;
+package com.abysalto.catalog.repository;
 
-import com.abysalto.cart.domain.Product;
+import com.abysalto.catalog.domain.Product;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import java.util.UUID;

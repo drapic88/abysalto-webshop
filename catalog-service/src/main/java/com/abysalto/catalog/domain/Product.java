@@ -1,17 +1,40 @@
-package com.abysalto.cart.domain;
+package com.abysalto.catalog.domain;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-public class Product {
+@Entity
+@Table(name = "products")
+public class Product implements Serializable {
+    private static final long serialVersionUID = 1L;
 
+    @Id
+    @Column(name = "product_id")
     private UUID productId;
+
+    @Column(nullable = false)
     private String name;
+
+    @Column(length = 1000)
     private String description;
+
+    @Column(name = "price_numeric", nullable = false, precision = 12, scale = 4)
     private BigDecimal priceNumeric;
+
+    @Column(name = "price_currency", nullable = false, length = 3)
     private String priceCurrency = "USD";
+
+    @Column(name = "image_url")
     private String imageUrl;
+
     private String category;
+
+    @Column(name = "stock_quantity", nullable = false)
     private int stockQuantity;
 
     public Product() {}

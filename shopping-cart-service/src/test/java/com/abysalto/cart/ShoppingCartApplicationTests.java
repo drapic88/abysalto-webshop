@@ -1,25 +1,30 @@
 package com.abysalto.cart;
 
+import com.abysalto.cart.client.CatalogClient;
 import com.abysalto.cart.domain.Cart;
 import com.abysalto.cart.domain.Product;
-import com.abysalto.cart.repository.ProductRepository;
+import com.abysalto.cart.domain.CartItem;
 import com.abysalto.cart.service.CartService;
 import com.abysalto.cart.service.MetricsTracker;
-import com.abysalto.cart.domain.CartItem;
-import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
+
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 @SpringBootTest
 class ShoppingCartApplicationTests {
 
-    @Autowired
-    private ProductRepository productRepository;
+    @MockBean
+    private CatalogClient catalogClient;
 
     @Autowired
     private CartService cartService;
@@ -30,12 +35,6 @@ class ShoppingCartApplicationTests {
     @Test
     void contextLoads() {
         // Basic sanity check to verify spring boot bootstrapping
-    }
-
-    @Test
-    void testSeededProductsCount() {
-        long count = productRepository.count();
-        assertEquals(10, count, "There should be exactly 10 seeded products loaded in the database on start!");
     }
 
     @Test
@@ -83,47 +82,57 @@ class ShoppingCartApplicationTests {
     @Test
     void testAddItemToCart_NegativeOrZeroQuantity_ThrowsException() {
         UUID cartId = UUID.randomUUID();
-        Product testProduct = productRepository.save(new Product(
-                UUID.randomUUID(), "Test Product", "Desc", BigDecimal.TEN, "USD", "", "Cat", 100
-        ));
+        UUID productId = UUID.randomUUID();
+        Product testProduct = new Product(
+                productId, "Test Product", "Desc", BigDecimal.TEN, "USD", "", "Cat", 100
+        );
 
-        assertThrows(IllegalArgumentException.class, () -> cartService.addItemToCart(cartId, testProduct.getProductId(), -1));
-        assertThrows(IllegalArgumentException.class, () -> cartService.addItemToCart(cartId, testProduct.getProductId(), 0));
+        when(catalogClient.getProduct(productId)).thenReturn(Optional.of(testProduct));
+
+        assertThrows(IllegalArgumentException.class, () -> cartService.addItemToCart(cartId, productId, -1));
+        assertThrows(IllegalArgumentException.class, () -> cartService.addItemToCart(cartId, productId, 0));
     }
 
     @Test
     void testUpdateItemQuantity_NegativeOrZeroQuantity_ThrowsException() {
         UUID cartId = UUID.randomUUID();
-        Product testProduct = productRepository.save(new Product(
-                UUID.randomUUID(), "Test Product 2", "Desc", BigDecimal.TEN, "USD", "", "Cat", 100
-        ));
+        UUID productId = UUID.randomUUID();
+        Product testProduct = new Product(
+                productId, "Test Product 2", "Desc", BigDecimal.TEN, "USD", "", "Cat", 100
+        );
 
-        cartService.addItemToCart(cartId, testProduct.getProductId(), 2);
+        when(catalogClient.getProduct(productId)).thenReturn(Optional.of(testProduct));
+        cartService.addItemToCart(cartId, productId, 2);
 
-        assertThrows(IllegalArgumentException.class, () -> cartService.updateItemQuantity(cartId, testProduct.getProductId(), -5));
-        assertThrows(IllegalArgumentException.class, () -> cartService.updateItemQuantity(cartId, testProduct.getProductId(), 0));
+        assertThrows(IllegalArgumentException.class, () -> cartService.updateItemQuantity(cartId, productId, -5));
+        assertThrows(IllegalArgumentException.class, () -> cartService.updateItemQuantity(cartId, productId, 0));
     }
 
     @Test
     void testAddItemToCart_InsufficientStock_ThrowsException() {
         UUID cartId = UUID.randomUUID();
-        Product testProduct = productRepository.save(new Product(
-                UUID.randomUUID(), "Limited Product", "Desc", BigDecimal.TEN, "USD", "", "Cat", 5
-        ));
+        UUID productId = UUID.randomUUID();
+        Product testProduct = new Product(
+                productId, "Limited Product", "Desc", BigDecimal.TEN, "USD", "", "Cat", 5
+        );
 
-        assertThrows(IllegalArgumentException.class, () -> cartService.addItemToCart(cartId, testProduct.getProductId(), 6));
+        when(catalogClient.getProduct(productId)).thenReturn(Optional.of(testProduct));
+
+        assertThrows(IllegalArgumentException.class, () -> cartService.addItemToCart(cartId, productId, 6));
     }
 
     @Test
     void testUpdateItemQuantity_InsufficientStock_ThrowsException() {
         UUID cartId = UUID.randomUUID();
-        Product testProduct = productRepository.save(new Product(
-                UUID.randomUUID(), "Limited Product 2", "Desc", BigDecimal.TEN, "USD", "", "Cat", 5
-        ));
+        UUID productId = UUID.randomUUID();
+        Product testProduct = new Product(
+                productId, "Limited Product 2", "Desc", BigDecimal.TEN, "USD", "", "Cat", 5
+        );
 
-        cartService.addItemToCart(cartId, testProduct.getProductId(), 2);
+        when(catalogClient.getProduct(productId)).thenReturn(Optional.of(testProduct));
+        cartService.addItemToCart(cartId, productId, 2);
 
-        assertThrows(IllegalArgumentException.class, () -> cartService.updateItemQuantity(cartId, testProduct.getProductId(), 6));
+        assertThrows(IllegalArgumentException.class, () -> cartService.updateItemQuantity(cartId, productId, 6));
     }
 
     @Test
@@ -136,17 +145,21 @@ class ShoppingCartApplicationTests {
     void testCheckout_NonExistentProduct_ThrowsException() {
         UUID cartId = UUID.randomUUID();
         UUID fakeProductId = UUID.randomUUID();
+        when(catalogClient.getProduct(fakeProductId)).thenReturn(Optional.empty());
         assertThrows(IllegalArgumentException.class, () -> cartService.addItemToCart(cartId, fakeProductId, 1));
     }
 
     @Test
     void testCartLockedAfterCheckout_PreventsModifications() {
         UUID cartId = UUID.randomUUID();
-        Product testProduct = productRepository.save(new Product(
-                UUID.randomUUID(), "Checkout Product", "Desc", BigDecimal.TEN, "USD", "", "Cat", 10
-        ));
+        UUID productId = UUID.randomUUID();
+        Product testProduct = new Product(
+                productId, "Checkout Product", "Desc", BigDecimal.TEN, "USD", "", "Cat", 10
+        );
 
-        cartService.addItemToCart(cartId, testProduct.getProductId(), 2);
+        when(catalogClient.getProduct(productId)).thenReturn(Optional.of(testProduct));
+
+        cartService.addItemToCart(cartId, productId, 2);
         
         UUID orderId = cartService.checkoutCart(cartId, "John Doe", "123 Main St");
         assertNotNull(orderId);
@@ -155,16 +168,15 @@ class ShoppingCartApplicationTests {
         assertNotNull(cart.getCheckedOutAt());
         assertFalse(cart.isEditable());
 
-        assertThrows(IllegalStateException.class, () -> cartService.addItemToCart(cartId, testProduct.getProductId(), 1));
-        assertThrows(IllegalStateException.class, () -> cartService.updateItemQuantity(cartId, testProduct.getProductId(), 3));
-        assertThrows(IllegalStateException.class, () -> cartService.removeItemFromCart(cartId, testProduct.getProductId()));
+        assertThrows(IllegalStateException.class, () -> cartService.addItemToCart(cartId, productId, 1));
+        assertThrows(IllegalStateException.class, () -> cartService.updateItemQuantity(cartId, productId, 3));
+        assertThrows(IllegalStateException.class, () -> cartService.removeItemFromCart(cartId, productId));
         assertThrows(IllegalStateException.class, () -> cartService.clearCart(cartId));
         assertThrows(IllegalStateException.class, () -> cartService.checkoutCart(cartId, "John Doe", "123 Main St"));
     }
 
     @Test
     void testMetricsTrackerExtended() {
-        // Reset or use a local mock, or verify increment behavior on the autowired bean
         long initialPurchases = metricsTracker.getCheckoutsCompletedCount();
         BigDecimal initialSales = metricsTracker.getTotalSalesVolume();
 
@@ -179,14 +191,10 @@ class ShoppingCartApplicationTests {
         CartItem item3 = new CartItem(null, UUID.randomUUID(), 2, new BigDecimal("100.00"), "Product A", "USD");
         metricsTracker.recordCheckout(new BigDecimal("200.00"), List.of(item3));
 
-        // Verify products sold map
         Map<String, Long> productsSold = metricsTracker.getProductsSold();
-        // Product A total should be 3 + 2 = 5
         assertEquals(5L, productsSold.get("Product A"));
-        // Product B total should be 1
         assertEquals(1L, productsSold.get("Product B"));
 
-        // Verify min/max/average
         assertEquals(0, new BigDecimal("55.00").compareTo(metricsTracker.getMinCartAmount()));
         assertEquals(0, new BigDecimal("200.00").compareTo(metricsTracker.getMaxCartAmount()));
 
@@ -198,4 +206,3 @@ class ShoppingCartApplicationTests {
         assertNotNull(liveMetrics.get("purchasesCount"));
     }
 }
-
