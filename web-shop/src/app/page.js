@@ -13,7 +13,7 @@ export default function CatalogPage() {
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [totalElements, setTotalElements] = useState(0);
-  const pageSize = 4;
+  const pageSize = 6;
 
   useEffect(() => {
     setLoading(true);
