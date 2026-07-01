@@ -132,6 +132,15 @@ If you have Java 21 and Gradle/gradlew configured locally:
 
 ---
 
+## 📚 Architecture & Design Documentation
+
+For a deep dive into the system's technical design, scaling strategies, and presentation slides, check out the following resources in the [doc/](doc/) directory:
+
+- 📑 **[High-Level Design Document](doc/presentation_design_doc.md)**: A detailed design architecture covering technical stack selection, high-availability scaling strategy, security & OAuth2 policies, external integrations (ERP, marketplaces, fiscalization), and system telemetry.
+- 🌍 **[Interactive Slide Presentation (Live Web)](https://drapic88.github.io/abysalto-webshop/doc/presentation.html)** (or view the [local file](doc/presentation.html)): An interactive, browser-rendered HTML slide deck summarizing the business goals, tech stack, and ecosystem overview.
+
+---
+
 ## 📂 Project Structure
 
 ```
@@ -141,6 +150,9 @@ abysalto-webshop/
 │   ├── src/main/java/         # Core logic, search indexers & DB entities
 │   ├── src/test/java/         # Integration & Unit tests
 │   └── build.gradle           # Build dependencies & configuration
+├── doc/                       # System design docs & presentation slides
+│   ├── presentation_design_doc.md # High-level design document
+│   └── presentation.html      # Interactive slide presentation
 ├── shopping-cart-service/     # Shopping Cart & Checkout Spring Boot API
 │   ├── src/main/java/         # Domain models, services & controller layers
 │   ├── src/test/java/         # MockMvc & checkout flow tests
