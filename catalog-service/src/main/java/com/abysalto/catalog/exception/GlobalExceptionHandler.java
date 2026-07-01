@@ -20,7 +20,6 @@ public class GlobalExceptionHandler {
                 ex.getMessage()
         );
         problemDetail.setTitle("Product Not Found");
-        problemDetail.setType(URI.create("https://abysalto.com/errors/product-not-found"));
         problemDetail.setProperty("timestamp", Instant.now());
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(problemDetail);
@@ -34,7 +33,6 @@ public class GlobalExceptionHandler {
                 ex.getMessage()
         );
         problemDetail.setTitle("Insufficient Stock");
-        problemDetail.setType(URI.create("https://abysalto.com/errors/insufficient-stock"));
         problemDetail.setProperty("timestamp", Instant.now());
 
         return ResponseEntity.status(HttpStatus.CONFLICT).body(problemDetail);
@@ -48,7 +46,6 @@ public class GlobalExceptionHandler {
                 "An unexpected server error occurred: " + ex.getMessage()
         );
         problemDetail.setTitle("Internal Server Error");
-        problemDetail.setType(URI.create("https://abysalto.com/errors/internal-server-error"));
         problemDetail.setProperty("timestamp", Instant.now());
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(problemDetail);
