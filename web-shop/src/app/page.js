@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { getOrCreateCartId, API_BASE_URL, CATALOG_API_BASE_URL } from './utils/cartHelper';
 
 export default function CatalogPage() {
@@ -269,17 +270,28 @@ export default function CatalogPage() {
               const productId = product.productId || product.id;
               const priceNumeric = product.priceNumeric !== undefined ? product.priceNumeric : product.price;
               return (
-                <div key={productId} className="glass-card product-card">
-                  <div className="product-image-container">
-                    <img src={product.imageUrl} alt={product.name} className="product-img" />
-                  </div>
+                <div key={productId} className="glass-card product-card" style={{ display: 'flex', flexDirection: 'column' }}>
+                  <Link href={`/products/${productId}`} style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}>
+                    <div className="product-image-container" style={{ overflow: 'hidden', borderRadius: '12px', marginBottom: '1rem' }}>
+                      <img 
+                        src={product.imageUrl} 
+                        alt={product.name} 
+                        className="product-img" 
+                        style={{ transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+                      />
+                    </div>
+                  </Link>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                     <span className="product-category" style={{ marginBottom: 0 }}>{product.category}</span>
                     <span style={{ fontSize: '0.8rem', color: product.stockQuantity > 0 ? 'rgba(255, 255, 255, 0.4)' : 'var(--accent-rose)', fontWeight: '500' }}>
                       {product.stockQuantity > 0 ? `${product.stockQuantity} available` : 'Out of stock'}
                     </span>
                   </div>
-                  <h3 className="product-title">{product.name}</h3>
+                  <Link href={`/products/${productId}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                    <h3 className="product-title" style={{ transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent-solid)'} onMouseLeave={(e) => e.currentTarget.style.color = 'inherit'}>{product.name}</h3>
+                  </Link>
                   <p className="product-description">{product.description}</p>
                   <div className="product-footer">
                     <span className="product-price">${priceNumeric.toFixed(2)}</span>
