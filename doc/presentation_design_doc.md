@@ -10,7 +10,7 @@ This high-level design document outlines the system architecture and implementat
 *   **Frontend (Sales Channels):** Next.js (Web Shop), Native/Hybrid iOS & Android (Mobile App).
 *   **Backend (API & Logic):** Spring Boot 3.x (Java 21) organized in a multi-module monorepo and run on Google Kubernetes Engine (GKE).
 *   **Databases:** GCP Cloud SQL for PostgreSQL (Primary Relational DB with Read Replicas & Connection Pooling), GCP Firestore (NoSQL Document Store for flexible catalog metadata/user settings).
-*   **Caching & Queueing:** GCP Memorystore for Redis, GCP Pub/Sub (Event-driven message broker).
+*   **Caching & Queueing:** GCP Memorystore for Redis (leveraging Page Cache and a high-performance Real-Time Page Views Counter engine), GCP Pub/Sub (Event-driven message broker).
 *   **Security & Edge:** GCP Cloud DNS, GCP Cloud CDN, GCP Cloud Armor, GCP Apigee API Gateway.
 
 ### 1.2 System Sketch & Communication

@@ -87,7 +87,7 @@ graph TD
 ### 3.1. Sales Channels (Frontend & Integrations)
 To target a diverse customer base, the system supports four main entry points:
 *   **Web Shop:** A modern, fast, and responsive Next.js application, leveraging Server-Side Rendering (SSR) and Incremental Static Regeneration (ISR) to deliver optimal global SEO and sub-second load times via GCP Cloud CDN.
-*   **Mobile Applications:** Native or hybrid mobile applications communicating with the same backend APIs.
+*   **Mobile Applications:** Generic native or cross-platform mobile applications (e.g., React Native, Flutter, or native Swift/Kotlin) communicating securely with the backend APIs via mobile-specific endpoints.
 *   **Marketplace Integrations:** Background integration workers and adapter microservices that synchronize inventory, pricing, and orders with external marketplaces. For our decoupled microservice adapter patterns, see the detailed **[Marketplace Integration Architecture](marketplace_integration.md)**.
 *   **B2B Integrations:** Secure partner-facing REST APIs or EDI gateways enabling high-volume bulk ordering and contract pricing. For our enterprise customer hierarchies, contract pricing, and schema specifications, see the detailed **[B2B Integration Architecture](b2b_integration.md)**.
 
@@ -172,7 +172,8 @@ graph TD
 
 1.  **Split-Read Catalog Tier (Redis + Elasticsearch):**
     *   **Elasticsearch (Elastic Cloud on GCP):** Powers the search bar, type-ahead/auto-complete, dynamic filtering (facets), and search relevance ranking.
-    *   **GCP Memorystore for Redis:** Acts as a high-speed cache for individual Product Detail Page (PDP) requests (direct ID lookups), yielding sub-millisecond retrieval times.
+    *   **GCP Memorystore for Redis (Page Cache):** Acts as a high-speed cache for individual Product Detail Page (PDP) requests (direct ID lookups), yielding sub-millisecond retrieval times.
+    *   **Redis for Page Views Tracking (Real-Time Counters):** Implements a high-performance Redis-backed Buffered Counter Pattern to track global and product-specific page views in real-time under high concurrency, bypassing SQL writes.
 2.  **Transactional Database Tier (Cloud SQL for PostgreSQL):**
     *   **Logical DB-per-Service on Shared PostgreSQL HA:** Each team's service (Catalog, Order, Payment, and Customer/Profile) is provisioned with its own logical database (e.g., `catalog_db`, `order_db`, `payment_db`, `customer_db`) on a shared **GCP Cloud SQL for PostgreSQL** cluster instance with active read-replicas.
     *   **Zero Direct Cross-Service Queries:** Services are strictly forbidden from querying another service's tables directly. Any inter-service data dependencies (e.g., checkout price validation) are performed via high-speed internal gRPC APIs.

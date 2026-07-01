@@ -189,3 +189,50 @@ We leverage **GCP Pub/Sub** as a highly durable, real-time message bus to fully 
 *   To prevent selling out-of-stock items, product quantities are updated in real-time.
 *   **Transactional Outbox Pattern:** Spring Boot services write business entities and event records within the same transaction to PostgreSQL, and a background publisher reads the outbox table to emit events to Pub/Sub.
 *   **Instant Cache Eviction:** Once inventory events are received, the Catalog Service invalidates local caches and Redis entries for that product instantly, ensuring subsequent buyers get exact availability data.
+
+### 3.4. Real-Time Page Views Tracking (Redis Buffered Counter Pattern)
+To handle page views tracking for millions of daily active users, the platform avoids direct database writes per view, which would overwhelm the primary PostgreSQL database with write lock operations. Instead, we implement a **Redis-backed Buffered Counter Pattern**.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Client Browser
+    participant Gateway as BFF / Cloud Gateway
+    participant Redis as Memorystore Redis
+    participant Worker as GKE Metrics Worker
+    participant BigQuery as GCP BigQuery
+
+    User->>Gateway: GET /products/{id} (View Page)
+    Gateway-->>User: Return Page Content
+    
+    Note over Gateway,Redis: ASYNCHRONOUS BACKGROUND RECORDING
+    Gateway->>Redis: PFADD page_views:global:hyperloglog {userId}
+    Gateway->>Redis: HINCRBY product:views:{id} count 1
+    Gateway->>Redis: ZINCRBY products:leaderboard:daily 1 {id}
+
+    Note over Worker,Redis: SCHEDULED BATCH WRITE-BACK (Every 5 Minutes)
+    Worker->>Redis: HGETALL product:views:*
+    Worker->>BigQuery: Bulk Stream Page View Metrics
+    Worker->>Redis: DEL product:views:* (Reset Counter Buffer)
+```
+
+#### Technical Implementation Details:
+1.  **Unique Visitor Tracking (HyperLogLog):**  
+    We use Redis `PFADD` on daily unique tracking keys (e.g., `views:unique:2026-07-01`) to track Unique Daily Active Users (DAUs). Redis HyperLogLog provides a highly optimized cardinality estimation with a standard error of only $0.81\%$ using less than 12KB of memory per key, regardless of the size of unique users.
+2.  **Raw View Buffers (Hashes):**  
+    Raw click and view increments are written using high-speed atomic Redis operations:
+    ```redis
+    HINCRBY product:views:{productId} count 1
+    ```
+3.  **Real-Time Popularity Leaderboard (Sorted Sets):**  
+    To display trending items on the storefront in real-time under extreme scale, we increment item scores inside a Redis Sorted Set:
+    ```redis
+    ZINCRBY products:leaderboard:daily 1 {productId}
+    ```
+    The Web Shop frontend or B2C BFF retrieves the top 10 trending items using a single O(log(N) + M) operation:
+    ```redis
+    ZREVRANGE products:leaderboard:daily 0 9 WITHSCORES
+    ```
+4.  **Asynchronous Scheduled Write-Back:**  
+    A lightweight GKE cron worker runs a reconciliation cycle every 5 minutes. It extracts accumulated view buffers from Redis via bulk `HGETALL` patterns, streams them in batches to **GCP BigQuery** for historical tracking and analytical analysis, and clears the Redis hashes. This guarantees zero PostgreSQL performance impact.
+
