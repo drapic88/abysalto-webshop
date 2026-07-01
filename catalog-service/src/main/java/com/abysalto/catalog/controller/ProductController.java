@@ -1,9 +1,11 @@
 package com.abysalto.catalog.controller;
 
 import com.abysalto.catalog.domain.Product;
+import com.abysalto.catalog.domain.ProductDocument;
 import com.abysalto.catalog.exception.ProductNotFoundException;
 import com.abysalto.catalog.exception.InsufficientStockException;
 import com.abysalto.catalog.repository.ProductRepository;
+import com.abysalto.catalog.service.ProductSearchService;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.ResponseEntity;
@@ -13,7 +15,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -22,9 +23,11 @@ import java.util.UUID;
 public class ProductController {
 
     private final ProductRepository productRepository;
+    private final ProductSearchService productSearchService;
 
-    public ProductController(ProductRepository productRepository) {
+    public ProductController(ProductRepository productRepository, ProductSearchService productSearchService) {
         this.productRepository = productRepository;
+        this.productSearchService = productSearchService;
     }
 
     @GetMapping
@@ -33,6 +36,16 @@ public class ProductController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         return productRepository.findAll(PageRequest.of(page, size));
+    }
+
+    @GetMapping("/search")
+    @Operation(summary = "Search products via Elasticsearch", description = "Performs multi-match fuzzy search on name and description with optional category filtering")
+    public Page<ProductDocument> searchProducts(
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) String category,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return productSearchService.search(query, category, page, size);
     }
 
     @GetMapping("/{productId}")
@@ -56,6 +69,11 @@ public class ProductController {
         product.setStockQuantity(product.getStockQuantity() - quantity);
         productRepository.save(product);
         System.out.println(">>> Stock Deducted programmatically. Evicted cache for: " + productId);
+        
+        // Sync with Elasticsearch
+        productSearchService.updateStock(productId, product.getStockQuantity());
+        
         return ResponseEntity.ok().build();
     }
 }
+

@@ -2,12 +2,12 @@ package com.abysalto.catalog.config;
 
 import com.abysalto.catalog.domain.Product;
 import com.abysalto.catalog.repository.ProductRepository;
+import com.abysalto.catalog.service.ProductSearchService;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
@@ -16,9 +16,11 @@ import java.util.UUID;
 public class DatabaseSeeder implements CommandLineRunner {
 
     private final ProductRepository productRepository;
+    private final ProductSearchService productSearchService;
 
-    public DatabaseSeeder(ProductRepository productRepository) {
+    public DatabaseSeeder(ProductRepository productRepository, ProductSearchService productSearchService) {
         this.productRepository = productRepository;
+        this.productSearchService = productSearchService;
     }
 
     @Override
@@ -207,6 +209,21 @@ public class DatabaseSeeder implements CommandLineRunner {
 
             productRepository.saveAll(seedProducts);
             System.out.println(">>> Seeded 1000 high-quality products into the catalog database successfully!");
+
+            System.out.println(">>> Indexing seeded products to Elasticsearch in background...");
+            // Run in a thread or simple loop. Since it's a seeder and runs once, simple loop is fine.
+            new Thread(() -> {
+                try {
+                    // Give Elasticsearch a few seconds to fully initialize if it's starting up
+                    Thread.sleep(5000);
+                    for (Product product : seedProducts) {
+                        productSearchService.indexProduct(product);
+                    }
+                    System.out.println(">>> Successfully completed Elasticsearch bulk seeding index!");
+                } catch (Exception e) {
+                    System.err.println(">>> Background indexing failed: " + e.getMessage());
+                }
+            }).start();
         }
     }
 }

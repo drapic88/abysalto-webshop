@@ -94,15 +94,38 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - SPRING_DATASOURCE_URL=jdbc:postgresql://catalog-db:5432/catalog_db
       - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_ELASTICSEARCH_URIS=http://elasticsearch:9200
     depends_on:
       catalog-db:
         condition: service_healthy
       redis:
         condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
     develop:
       watch:
         - action: rebuild
           path: ./catalog-service/src
+    networks:
+      - abysalto-network
+
+  # Elasticsearch Service Tier
+  elasticsearch:
+    image: elasticsearch:8.11.1
+    container_name: abysalto-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200 >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - abysalto-network
 
@@ -131,6 +154,7 @@ volumes:
   postgres_data:
   catalog_postgres_data:
   redis_data:
+  es_data:
 
 networks:
   abysalto-network:
