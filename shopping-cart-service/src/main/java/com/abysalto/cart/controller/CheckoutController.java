@@ -10,7 +10,6 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/carts")
-@CrossOrigin(origins = "*")
 public class CheckoutController {
 
     private final CartService cartService;

@@ -7,7 +7,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/metrics")
-@CrossOrigin(origins = "*")
 public class MetricsController {
 
     private final MetricsTracker metricsTracker;
