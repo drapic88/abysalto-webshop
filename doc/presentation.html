@@ -323,10 +323,10 @@ pre {
 <div>
 <h3 id="technology-stack">Technology Stack</h3>
 <ul>
-<li data-marpit-fragment="1"><strong>Frontend:</strong> Next.js (SSR/ISR) &amp; Hybrid Mobile</li>
+<li data-marpit-fragment="1"><strong>Frontend:</strong> Next.js (SSR/ISR) &amp; Generic Native/Cross-Platform Mobile</li>
 <li data-marpit-fragment="2"><strong>Backend:</strong> Spring Boot 3.x (Java 21)</li>
 <li data-marpit-fragment="3"><strong>Primary DB:</strong> GCP Cloud SQL (PostgreSQL)</li>
-<li data-marpit-fragment="4"><strong>Caching:</strong> GCP Memorystore for Redis</li>
+<li data-marpit-fragment="4"><strong>Caching:</strong> GCP Memorystore for Redis (including Real-Time Page Views Counters)</li>
 <li data-marpit-fragment="5"><strong>Event Broker:</strong> GCP Pub/Sub</li>
 <li data-marpit-fragment="6"><strong>Edge:</strong> Apigee, Cloud CDN, Cloud Armor</li>
 </ul>
@@ -548,7 +548,7 @@ pre {
 <ul>
 <li data-marpit-fragment="1"><strong>HA Cloud SQL (PostgreSQL):</strong> High-Availability multi-zone clustering paired with geographical <strong>Read Replicas</strong> to scale read traffic.</li>
 <li data-marpit-fragment="2"><strong>PgBouncer Pooling:</strong> Manages and reuse massive database connection pools from containerized microservices.</li>
-<li data-marpit-fragment="3"><strong>GCP Memorystore for Redis:</strong> Acts as an ultra-fast read cache for catalog lookups, scaling read operations to sub-millisecond latencies.</li>
+<li data-marpit-fragment="3"><strong>GCP Memorystore for Redis:</strong> Ultra-fast read cache for catalog lookups combined with a <strong>Redis Buffered Counter Pattern</strong> for high-volume real-time page views tracking.</li>
 <li data-marpit-fragment="4"><strong>GCP Cloud CDN:</strong> Leverages Next.js static asset and ISR optimization for sub-second, edge-cached content delivery.</li>
 </ul>
 </section>
@@ -763,7 +763,7 @@ pre {
 }
 ;color:#f8fafc;background-color:#0f172a;background-image:none;" data-marpit-pagination-total="11">
 <h2 id="6-key-components-gke-microservices">6. Key Components (GKE Microservices)</h2>
-<p>Our multi-module monorepo contains decoupled domain services:</p>
+<p>Our multi-module monorepo contains decoupled domain services <em>(Note: Codebase currently implements core `catalog` &amp; `shopping-cart` MVP services)</em>:</p>
 <ul>
 <li data-marpit-fragment="1"><strong>Catalog Service:</strong> Manages product discovery, category indexing, and Redis cache synchronization.</li>
 <li data-marpit-fragment="2"><strong>Order &amp; Checkout Service:</strong> Evaluates promotional rules, orchestrates transaction state, and saves order details to PostgreSQL.</li>

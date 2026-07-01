@@ -80,10 +80,10 @@ style: |
 <div>
 
 ### Technology Stack
-*   **Frontend:** Next.js (SSR/ISR) & Hybrid Mobile
+*   **Frontend:** Next.js (SSR/ISR) & Generic Native/Cross-Platform Mobile
 *   **Backend:** Spring Boot 3.x (Java 21)
 *   **Primary DB:** GCP Cloud SQL (PostgreSQL)
-*   **Caching:** GCP Memorystore for Redis
+*   **Caching:** GCP Memorystore for Redis (including Real-Time Page Views Counters)
 *   **Event Broker:** GCP Pub/Sub
 *   **Edge:** Apigee, Cloud CDN, Cloud Armor
 
@@ -114,7 +114,7 @@ To handle high traffic volume spikes and flash sales:
 
 *   **HA Cloud SQL (PostgreSQL):** High-Availability multi-zone clustering paired with geographical **Read Replicas** to scale read traffic.
 *   **PgBouncer Pooling:** Manages and reuse massive database connection pools from containerized microservices.
-*   **GCP Memorystore for Redis:** Acts as an ultra-fast read cache for catalog lookups, scaling read operations to sub-millisecond latencies.
+*   **GCP Memorystore for Redis:** Ultra-fast read cache for catalog lookups combined with a **Redis Buffered Counter Pattern** for high-volume real-time page views tracking.
 *   **GCP Cloud CDN:** Leverages Next.js static asset and ISR optimization for sub-second, edge-cached content delivery.
 
 ---
@@ -131,7 +131,7 @@ To handle high traffic volume spikes and flash sales:
 
 ## 6. Key Components (GKE Microservices)
 
-Our multi-module monorepo contains decoupled domain services:
+Our multi-module monorepo contains decoupled domain services *(Note: Codebase currently implements core `catalog` & `shopping-cart` MVP services)*:
 
 *   **Catalog Service:** Manages product discovery, category indexing, and Redis cache synchronization.
 *   **Order & Checkout Service:** Evaluates promotional rules, orchestrates transaction state, and saves order details to PostgreSQL.
