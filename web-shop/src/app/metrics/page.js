@@ -427,7 +427,7 @@ export default function MetricsPage() {
               className="btn-premium"
               style={{ width: '100%', marginTop: '2rem', padding: '0.85rem' }}
             >
-              Close Invoice Receipt
+              Close
             </button>
           </div>
         </div>

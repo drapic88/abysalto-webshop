@@ -95,13 +95,8 @@ public class ProductSearchService {
                 .withPageable(PageRequest.of(page, size))
                 .build();
 
-        try {
-            SearchHits<ProductDocument> searchHits = elasticsearchOperations.search(nativeQuery, ProductDocument.class);
-            List<ProductDocument> content = searchHits.get().map(SearchHit::getContent).collect(Collectors.toList());
-            return new PageImpl<>(content, PageRequest.of(page, size), searchHits.getTotalHits());
-        } catch (Exception e) {
-            System.err.println(">>> Search query failed on Elasticsearch, falling back to empty page: " + e.getMessage());
-            return Page.empty(PageRequest.of(page, size));
-        }
+        SearchHits<ProductDocument> searchHits = elasticsearchOperations.search(nativeQuery, ProductDocument.class);
+        List<ProductDocument> content = searchHits.get().map(SearchHit::getContent).collect(Collectors.toList());
+        return new PageImpl<>(content, PageRequest.of(page, size), searchHits.getTotalHits());
     }
 }

@@ -45,7 +45,26 @@ public class ProductController {
             @RequestParam(required = false) String category,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        return productSearchService.search(query, category, page, size);
+        try {
+            return productSearchService.search(query, category, page, size);
+        } catch (Exception e) {
+            System.err.println(">>> Elasticsearch search failed, falling back to database search: " + e.getMessage());
+            Page<Product> dbProducts = productRepository.searchProducts(query, category, PageRequest.of(page, size));
+            return dbProducts.map(this::mapToDocument);
+        }
+    }
+
+    private ProductDocument mapToDocument(Product product) {
+        return new ProductDocument(
+                product.getProductId().toString(),
+                product.getName(),
+                product.getDescription(),
+                product.getPriceNumeric() != null ? product.getPriceNumeric().doubleValue() : 0.0,
+                product.getPriceCurrency(),
+                product.getImageUrl(),
+                product.getCategory(),
+                product.getStockQuantity()
+        );
     }
 
     @GetMapping("/{productId}")
