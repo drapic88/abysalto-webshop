@@ -21,6 +21,10 @@ const nextConfig = {
         destination: `${cartUrl}/api/carts/:path*`,
       },
       {
+        source: '/api/orders/:path*',
+        destination: `${cartUrl}/api/orders/:path*`,
+      },
+      {
         source: '/api/metrics/:path*',
         destination: `${cartUrl}/api/metrics/:path*`,
       },
