@@ -1,6 +1,9 @@
 package com.abysalto.cart.service;
 
+import com.abysalto.cart.domain.Cart;
 import com.abysalto.cart.domain.CartItem;
+import com.abysalto.cart.repository.CartRepository;
+
 import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.util.List;
@@ -11,6 +14,8 @@ import java.util.concurrent.atomic.AtomicLong;
 @Service
 public class MetricsTracker {
 
+    private final CartRepository cartRepository;
+
     private final AtomicInteger activeCartsCount = new AtomicInteger(0);
     private final AtomicLong itemsAddedCount = new AtomicLong(0);
     private final AtomicLong checkoutsCompletedCount = new AtomicLong(0);
@@ -20,6 +25,43 @@ public class MetricsTracker {
     private BigDecimal totalSalesVolume = BigDecimal.ZERO;
     private BigDecimal minCartAmount = null;
     private BigDecimal maxCartAmount = null;
+
+    public MetricsTracker(CartRepository cartRepository) {
+        this.cartRepository = cartRepository;
+    }
+
+    @jakarta.annotation.PostConstruct
+    public void init() {
+        List<Cart> checkedOutCarts = cartRepository.findByCheckedOutAtIsNotNullOrderByCheckedOutAtDesc();
+        checkoutsCompletedCount.set(checkedOutCarts.size());
+        
+        BigDecimal total = BigDecimal.ZERO;
+        BigDecimal min = null;
+        BigDecimal max = null;
+        long totalItems = 0;
+        
+        for (var cart : checkedOutCarts) {
+            BigDecimal amount = cart.getTotalAmount();
+            total = total.add(amount);
+            if (min == null || amount.compareTo(min) < 0) {
+                min = amount;
+            }
+            if (max == null || amount.compareTo(max) > 0) {
+                max = amount;
+            }
+            for (var item : cart.getItems()) {
+                productsSold.merge(item.getProductName(), (long) item.getQuantity(), Long::sum);
+                totalItems += item.getQuantity();
+            }
+        }
+        
+        synchronized (this) {
+            this.totalSalesVolume = total;
+            this.minCartAmount = min;
+            this.maxCartAmount = max;
+        }
+        this.itemsAddedCount.set(totalItems);
+    }
 
     public void incrementActiveCarts() {
         activeCartsCount.incrementAndGet();
