@@ -33,6 +33,8 @@ spring:
     redis:
       host: localhost
       port: 6379
+  elasticsearch:
+    uris: ${SPRING_ELASTICSEARCH_URIS:http://localhost:9200}
 
 # Manage standard actuators and Prometheus scraping
 management:
@@ -67,3 +69,4 @@ spring:
     redis:
       host: redis
       port: 6379
+
