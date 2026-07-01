@@ -143,8 +143,8 @@ For a deep dive into the system's technical design, scaling strategies, and pres
 - 📑 **[High-Level Design Document](doc/presentation_design_doc.md)**: A detailed design architecture covering technical stack selection, high-availability scaling strategy, security & OAuth2 policies, external integrations (ERP, marketplaces, fiscalization), and system telemetry.
 - 🌍 **[Interactive Slide Presentation (Live Web)](https://drapic88.github.io/abysalto-webshop/doc/presentation.html)** (or view the [local file](doc/presentation.html)): An interactive, browser-rendered HTML slide deck summarizing the business goals, tech stack, and ecosystem overview.
 - 📖 **Interactive API Documentation (OpenAPI / Swagger)**:
-  - **Shopping Cart Service Specs**: [Swagger UI](http://localhost:8080/swagger-ui/index.html) | [Raw OpenAPI Spec](http://localhost:8080/v3/api-docs)
-  - **Catalog Service Specs**: [Swagger UI](http://localhost:8081/swagger-ui/index.html) | [Raw OpenAPI Spec](http://localhost:8081/v3/api-docs)
+  - **Shopping Cart Service Specs**: [Swagger UI (local link)](http://localhost:8080/swagger-ui/index.html) | [Raw OpenAPI Spec](http://localhost:8080/v3/api-docs)
+  - **Catalog Service Specs**: [Swagger UI (local link)](http://localhost:8081/swagger-ui/index.html) | [Raw OpenAPI Spec](http://localhost:8081/v3/api-docs)
 
 ---
 
