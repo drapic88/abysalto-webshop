@@ -141,6 +141,9 @@ public class CartService {
 
         // Mark the shopping cart as checked out
         cart.setCheckedOutAt(LocalDateTime.now());
+        cart.setOrderId(orderId);
+        cart.setCustomerName(customerName);
+        cart.setShippingAddress(shippingAddress);
         cartRepository.save(cart);
 
         return orderId;

@@ -15,7 +15,11 @@ public record CartDTO(
     BigDecimal totalAmount,
     String currency,
     LocalDateTime createdAt,
-    LocalDateTime updatedAt
+    LocalDateTime updatedAt,
+    UUID orderId,
+    String customerName,
+    String shippingAddress,
+    LocalDateTime checkedOutAt
 ) {
     public static CartDTO fromEntity(Cart cart) {
         if (cart == null) return null;
@@ -28,7 +32,11 @@ public record CartDTO(
             cart.getTotalAmount(),
             cart.getCurrency(),
             cart.getCreatedAt(),
-            cart.getUpdatedAt()
+            cart.getUpdatedAt(),
+            cart.getOrderId(),
+            cart.getCustomerName(),
+            cart.getShippingAddress(),
+            cart.getCheckedOutAt()
         );
     }
 }

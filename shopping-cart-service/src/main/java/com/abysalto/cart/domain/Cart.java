@@ -43,6 +43,15 @@ public class Cart {
     @Column(name = "checked_out_at")
     private LocalDateTime checkedOutAt;
 
+    @Column(name = "order_id")
+    private UUID orderId;
+
+    @Column(name = "customer_name")
+    private String customerName;
+
+    @Column(name = "shipping_address")
+    private String shippingAddress;
+
     public Cart() {
         this.cartId = UUID.randomUUID();
         this.createdAt = LocalDateTime.now();
@@ -119,6 +128,30 @@ public class Cart {
 
     public void setCheckedOutAt(LocalDateTime checkedOutAt) {
         this.checkedOutAt = checkedOutAt;
+    }
+
+    public UUID getOrderId() {
+        return orderId;
+    }
+
+    public void setOrderId(UUID orderId) {
+        this.orderId = orderId;
+    }
+
+    public String getCustomerName() {
+        return customerName;
+    }
+
+    public void setCustomerName(String customerName) {
+        this.customerName = customerName;
+    }
+
+    public String getShippingAddress() {
+        return shippingAddress;
+    }
+
+    public void setShippingAddress(String shippingAddress) {
+        this.shippingAddress = shippingAddress;
     }
 
     public boolean isEditable() {
