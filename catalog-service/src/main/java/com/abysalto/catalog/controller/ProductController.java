@@ -7,6 +7,10 @@ import com.abysalto.catalog.repository.ProductRepository;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.ResponseEntity;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -14,6 +18,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/products")
+@Tag(name = "Product Catalog API", description = "Endpoints for retrieving products and managing inventory stock")
 public class ProductController {
 
     private final ProductRepository productRepository;
@@ -23,8 +28,11 @@ public class ProductController {
     }
 
     @GetMapping
-    public List<Product> getAllProducts() {
-        return productRepository.findAll();
+    @Operation(summary = "Get paginated products", description = "Retrieves a paginated list of catalog products")
+    public Page<Product> getAllProducts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return productRepository.findAll(PageRequest.of(page, size));
     }
 
     @GetMapping("/{productId}")
