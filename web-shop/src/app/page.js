@@ -273,7 +273,12 @@ export default function CatalogPage() {
                   <div className="product-image-container">
                     <img src={product.imageUrl} alt={product.name} className="product-img" />
                   </div>
-                  <div className="product-category">{product.category}</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <span className="product-category" style={{ marginBottom: 0 }}>{product.category}</span>
+                    <span style={{ fontSize: '0.8rem', color: product.stockQuantity > 0 ? 'rgba(255, 255, 255, 0.4)' : 'var(--accent-rose)', fontWeight: '500' }}>
+                      {product.stockQuantity > 0 ? `${product.stockQuantity} available` : 'Out of stock'}
+                    </span>
+                  </div>
                   <h3 className="product-title">{product.name}</h3>
                   <p className="product-description">{product.description}</p>
                   <div className="product-footer">
